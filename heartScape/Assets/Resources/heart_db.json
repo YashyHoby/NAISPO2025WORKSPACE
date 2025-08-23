@@ -1,0 +1,4 @@
+{ "items": [
+  { "uid":"AB12CD34", "hr":72, "cv":0.18, "range":16, "mean":78 },
+  { "uid":"EF56AA99", "hr":95, "cv":0.32, "range":28, "mean":88 }
+]}
