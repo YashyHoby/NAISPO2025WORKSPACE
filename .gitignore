@@ -1,0 +1,41 @@
+# --- Unity 再生成系（絶対コミットしない） ---
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild*/
+[Bb]uilds*/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+SysInfo.txt
+
+# --- IDE / 自動生成 ---
+.vs/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.csproj
+*.sln
+*.user
+*.pidb
+*.mdb
+*.opendb
+*.VC.db
+
+# --- Rider/VS キャッシュ ---
+*.DotSettings.user
+.gradle/
+
+# --- キャッシュ類 ---
+# Unity 6 以降のアーティファクトや各種キャッシュが増えても基本ここで吸収
+# 必要になったら都度追加
+
+# --- コミット対象（除外しない） ---
+# Assets/
+# Packages/
+# ProjectSettings/
+# (任意) .gitignore / .gitattributes / README.md
+
+# --- Addressables を使う場合の一例（binは生成物なので通常除外推奨） ---
+# Assets/AddressableAssetsData/*/*.bin*

@@ -1,0 +1,46 @@
+* text=auto eol=lf
+
+# ---- 改行統一（WindowsでもLFへ） ----
+*           text=auto eol=lf
+*.bat       text eol=crlf
+*.ps1       text eol=crlf
+*.cs        text eol=lf
+*.shader    text eol=lf
+*.cginc     text eol=lf
+*.compute   text eol=lf
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+
+# ---- Unity YAML系はSmartMerge（UnityYAMLMerge）を使う ----
+*.unity       merge=unityyamlmerge eol=lf
+*.prefab      merge=unityyamlmerge eol=lf
+*.mat         merge=unityyamlmerge eol=lf
+*.anim        merge=unityyamlmerge eol=lf
+*.controller  merge=unityyamlmerge eol=lf
+*.asset       merge=unityyamlmerge eol=lf
+*.spriteatlas* merge=unityyamlmerge eol=lf 
+
+# ---- .meta は union で安全併合 ----
+*.meta        merge=union eol=lf
+
+# ---- LFS（追跡コマンドで設定済みでも明記推奨） ----
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga  filter=lfs diff=lfs merge=lfs -text
+*.tif  filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.exr  filter=lfs diff=lfs merge=lfs -text
+*.svg  filter=lfs diff=lfs merge=lfs -text
+*.psd  filter=lfs diff=lfs merge=lfs -text lockable
+*.psb  filter=lfs diff=lfs merge=lfs -text lockable
+*.wav  filter=lfs diff=lfs merge=lfs -text
+*.mp3  filter=lfs diff=lfs merge=lfs -text
+*.ogg  filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+*.aif  filter=lfs diff=lfs merge=lfs -text
+*.mp4  filter=lfs diff=lfs merge=lfs -text
+*.mov  filter=lfs diff=lfs merge=lfs -text
+*.ttf  filter=lfs diff=lfs merge=lfs -text
+*.otf  filter=lfs diff=lfs merge=lfs -text
