@@ -5,15 +5,12 @@ public class HeartManager : MonoBehaviour
 {
     public List<HeartAgent> agents = new();
     public GameObject agentPrefab;
-    public int maxAgents = 140;
+    public int   maxAgents = 140;
+    public float cellSize  = 1.0f;
 
-    [Header("Spatial Hash")]
-    public float cellSize = 1.0f;
-    private readonly Dictionary<(int, int), List<HeartAgent>> cells = new();
+    Dictionary<(int,int), List<HeartAgent>> cells = new();
 
-    // ‹ß–Tƒ`ƒFƒbƒN—pƒIƒtƒZƒbƒg
-    private static readonly (int, int)[] neigh = new (int, int)[]
-    {
+    static readonly (int,int)[] neigh = {
         (0,0),(1,0),(0,1),(-1,0),(0,-1),(1,1),(-1,1),(1,-1),(-1,-1)
     };
 
@@ -24,139 +21,103 @@ public class HeartManager : MonoBehaviour
         DespawnOffscreen();
     }
 
-    // ====== Public API ======
     public HeartAgent Spawn(HeartProfile hp, Vector2 pos, Vector2 vel)
     {
         if (agents.Count >= maxAgents || agentPrefab == null) return null;
 
         var go = Instantiate(agentPrefab, pos, Quaternion.identity);
-        var a = go.GetComponent<HeartAgent>();
+        var a  = go.GetComponent<HeartAgent>();
 
         a.profile = hp;
-        a.radius = Mathf.Lerp(0.25f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
-        a.color = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
         a.shapeType = (ShapeType)Random.Range(0, 3);
-        a.vel = vel;
-        a.id = Random.Range(int.MinValue, int.MaxValue);
+        a.color   = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
+        a.vel     = vel;
+        a.id      = Random.Range(int.MinValue, int.MaxValue);
+
+        // åˆæœŸåŠå¾„ï¼ˆåŸºæº–Ã—æ®µéšã‚¹ã‚±ãƒ¼ãƒ«ã‚’é©ç”¨ï¼‰
+        a.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
+        a.growthStage = 0;
+        a.ApplyStageScale(); // public ã«ã—ãŸããªã„å ´åˆã¯ Spawn å¾Œã« radius ã‚’ç›´æŒ‡å®šã§ã‚‚OK
 
         agents.Add(a);
         return a;
     }
 
-    // ƒfƒoƒbƒO/‘|œ—pF‘SÁ‹
-    public void ClearAll()
-    {
-        for (int i = agents.Count - 1; i >= 0; i--)
-        {
-            if (agents[i] != null) Destroy(agents[i].gameObject);
-        }
-        agents.Clear();
-    }
-
-    // ====== Internal ======
-    private void BuildSpatialHash()
+    void BuildSpatialHash()
     {
         cells.Clear();
         foreach (var a in agents)
         {
-            var key = (
-                (int)Mathf.Floor(a.transform.position.x / cellSize),
-                (int)Mathf.Floor(a.transform.position.y / cellSize)
-            );
-            if (!cells.TryGetValue(key, out var list))
-            {
-                list = new List<HeartAgent>();
-                cells[key] = list;
-            }
+            var c = ((int)Mathf.Floor(a.transform.position.x / cellSize),
+                     (int)Mathf.Floor(a.transform.position.y / cellSize));
+            if (!cells.TryGetValue(c, out var list)) { list = new(); cells[c] = list; }
             list.Add(a);
         }
     }
 
-    private void HandleCollisions()
+    void HandleCollisions()
     {
         foreach (var kv in cells)
         {
             foreach (var d in neigh)
             {
-                var k = (kv.Key.Item1 + d.Item1, kv.Key.Item2 + d.Item2);
-                if (!cells.TryGetValue(k, out var list)) continue;
-
+                var key = (kv.Key.Item1 + d.Item1, kv.Key.Item2 + d.Item2);
+                if (!cells.TryGetValue(key, out var list)) continue;
                 int L = list.Count;
+
                 for (int i = 0; i < L; i++)
+                for (int j = i + 1; j < L; j++)
                 {
-                    for (int j = i + 1; j < L; j++)
-                    {
-                        var a = list[i];
-                        var b = list[j];
-                        float r = a.radius + b.radius;
-                        Vector2 delta = (Vector2)(b.transform.position - a.transform.position);
-                        float dist2 = delta.sqrMagnitude;
-                        if (dist2 >= r * r) continue;
+                    var a = list[i]; var b = list[j];
 
-                        float dist = Mathf.Max(Mathf.Sqrt(dist2), 1e-4f);
-                        Vector2 n = delta / dist;
-                        float rel = Vector2.Dot(b.vel - a.vel, n);
+                    // â˜… ãƒãƒ–ãƒ«æ•ç²ä¸­ã¯è¡çªåˆ¤å®šã‚¹ã‚­ãƒƒãƒ—
+                    if (a.isCaptured || b.isCaptured) continue;
 
-                        // ”½”­•‚ß‚è‚İ‰ğÁ
-                        float pen = r - dist;
-                        a.transform.position -= (Vector3)(n * pen * 0.5f);
-                        b.transform.position += (Vector3)(n * pen * 0.5f);
-                        a.vel -= n * rel * 0.5f;
-                        b.vel += n * rel * 0.5f;
+                    float r = a.radius + b.radius;
+                    Vector2 delta = (Vector2)(b.transform.position - a.transform.position);
+                    float dist2 = delta.sqrMagnitude;
+                    if (dist2 >= r * r) continue;
 
-                        // ‡‘Ì or ƒGƒlƒ‹ƒM’~Ï
-                        if (Mathf.Abs(rel) < 0.8f)
-                        {
-                            TryMerge(a, b);
-                        }
-                        else
-                        {
-                            a.energy += Mathf.Abs(rel) * 0.1f;
-                            b.energy += Mathf.Abs(rel) * 0.1f;
-                            if (a.energy > 2.5f) TrySplit(a);
-                            if (b.energy > 2.5f) TrySplit(b);
-                        }
+                    float dist = Mathf.Max(Mathf.Sqrt(dist2), 1e-4f);
+                    Vector2 n  = delta / dist;
+                    float rel  = Vector2.Dot(b.vel - a.vel, n);
 
-                        // Õ“Ë‰¹iAudioHub ‚ğ—pˆÓ‚µ‚Ä‚¢‚È‚¢‚È‚ç‚±‚Ìs‚ÍƒRƒƒ“ƒgƒAƒEƒgOKj
-                        AudioHub.PlayHit(a, b, rel);
-                    }
+                    // åç™ºï¼‹é£Ÿã„è¾¼ã¿è§£æ¶ˆ
+                    float pen = r - dist;
+                    a.transform.position -= (Vector3)(n * pen * 0.5f);
+                    b.transform.position += (Vector3)(n * pen * 0.5f);
+                    a.vel -= n * rel * 0.5f;
+                    b.vel += n * rel * 0.5f;
+
+                    // ç›¸å¯¾é€Ÿåº¦ãŒä½ã‘ã‚Œã°åˆä½“ï¼ˆä½“ç©ä¿å­˜ï¼‰
+                    if (Mathf.Abs(rel) < 0.8f)
+                        TryMerge(a, b);
+
+                    // è¡çªã§ã®åˆ†è£‚ã¯è¡Œã‚ãªã„ï¼ˆenergy ã‚‚ä¸ä½¿ç”¨ï¼‰
+                    AudioHub.PlayHit(a, b, rel);
                 }
             }
         }
     }
 
-    private void TryMerge(HeartAgent a, HeartAgent b)
+    void TryMerge(HeartAgent a, HeartAgent b)
     {
         if (a == null || b == null) return;
-        var big = (a.radius >= b.radius) ? a : b;
+        var big   = (a.radius >= b.radius) ? a : b;
         var small = (a.radius >= b.radius) ? b : a;
 
         float r2 = big.radius * big.radius + small.radius * small.radius;
         Vector2 v = (big.vel * big.radius + small.vel * small.radius) / (big.radius + small.radius);
-        big.radius = Mathf.Sqrt(r2);
-        big.vel = v;
-        big.energy *= 0.5f;
 
+        big.radius = Mathf.Sqrt(r2);
+        big.vel    = v;
+
+        // æˆé•·æ®µéšã¯ç¶­æŒï¼ˆè¦‹ãŸç›®ä¸Šã®ã‚µã‚¤ã‚ºã¯ radius ã‚’å„ªå…ˆï¼‰
         agents.Remove(small);
         if (small != null) Destroy(small.gameObject);
     }
 
-    private void TrySplit(HeartAgent a)
-    {
-        a.energy = 0f;
-        if (a.radius < 0.35f) return;
-
-        float childR = a.radius * 0.7f;
-        a.radius = childR;
-
-        var hp = a.profile;
-        var pos = (Vector2)a.transform.position;
-        var dir = Random.insideUnitCircle.normalized;
-        var child = Spawn(hp, pos + dir * childR * 0.6f, a.vel + dir * 1.2f);
-        if (child != null) child.radius = childR;
-    }
-
-    private void DespawnOffscreen()
+    void DespawnOffscreen()
     {
         for (int i = agents.Count - 1; i >= 0; i--)
         {
@@ -164,9 +125,17 @@ public class HeartManager : MonoBehaviour
             var p = a.transform.position;
             if (Mathf.Abs(p.x) > 10f || Mathf.Abs(p.y) > 6f)
             {
-                Destroy(a.gameObject);
+                if (a != null) Destroy(a.gameObject);
                 agents.RemoveAt(i);
             }
         }
+    }
+
+    // ãƒ‡ãƒãƒƒã‚°ç”¨ï¼šå…¨æ¶ˆå»
+    public void ClearAll()
+    {
+        for (int i = agents.Count - 1; i >= 0; i--)
+            if (agents[i] != null) Destroy(agents[i].gameObject);
+        agents.Clear();
     }
 }

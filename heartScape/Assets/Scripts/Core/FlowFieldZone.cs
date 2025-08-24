@@ -1,11 +1,13 @@
 using UnityEngine;
+
 public class FlowFieldZone : EventZone
 {
     public float strength = 2f;
+
     public override void Apply(HeartAgent a)
     {
-        var p = a.transform.position - transform.position;
-        Vector2 v = new Vector2(-p.y, p.x).normalized; // ŠÈˆÕ‰ñ“]—¬
+        var p  = a.transform.position - transform.position;
+        var v  = new Vector2(-p.y, p.x).normalized;  // ç°¡æ˜“å›è»¢æµ
         a.vel += v * strength * Time.deltaTime;
     }
 }

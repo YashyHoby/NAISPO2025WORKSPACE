@@ -1,8 +1,9 @@
-// Scripts/Core/SoundObstacle.cs
 using UnityEngine;
+
 public class SoundObstacle : EventZone
 {
     public string soundKey = "metal";
+
     public override void Apply(HeartAgent a)
     {
         AudioHub.PlayMaterial(soundKey);
