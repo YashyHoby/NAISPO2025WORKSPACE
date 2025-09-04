@@ -126,7 +126,6 @@ MonoBehaviour:
   shapeType: 0
   radius: 0
   vel: {x: 0, y: 0}
-  energy: 0
   color: {r: 0, g: 0, b: 0, a: 0}
   profile:
     uid: 
@@ -135,3 +134,15 @@ MonoBehaviour:
     range: 0
     mean: 0
   mat: {fileID: 2100000, guid: 7cd2626126b0f494480c666d721a79d7, type: 2}
+  stageScales:
+  - 0.45
+  - 0.6
+  - 0.75
+  - 0.9
+  - 1.05
+  baseRadius: 0.6
+  foodPerStage: 1
+  foodGainMul: 1
+  growthStage: 0
+  isCaptured: 0
+  capturedBy: {fileID: 0}
