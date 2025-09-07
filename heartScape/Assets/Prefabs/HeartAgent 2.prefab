@@ -11,10 +11,12 @@ GameObject:
   - component: {fileID: 1596643542823720879}
   - component: {fileID: 432444706666833358}
   - component: {fileID: 3527520758094412910}
-  - component: {fileID: 1187562055608644808}
   - component: {fileID: -9125560128062536466}
   - component: {fileID: 430249990174502058}
-  - component: {fileID: 7072785507844618079}
+  - component: {fileID: 4506072710588451775}
+  - component: {fileID: 5294315521255769479}
+  - component: {fileID: 7782577323663286395}
+  - component: {fileID: -1767959107442199089}
   m_Layer: 0
   m_Name: HeartAgent 2
   m_TagString: Untagged
@@ -90,42 +92,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &1187562055608644808
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3750958517354308534}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c67a7df81fc64e94bba9b26f434a2494, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  id: 0
-  shapeType: 0
-  baseRadius: 0.6
-  initialVelocity: {x: 0, y: 0}
-  radius: 0
-  color: {r: 0, g: 0, b: 0, a: 0}
-  profile:
-    uid: 
-    hr: 0
-    cv: 0
-    range: 0
-    mean: 0
-  mat: {fileID: 2100000, guid: 7cd2626126b0f494480c666d721a79d7, type: 2}
-  stageScales:
-  - 0.45
-  - 0.6
-  - 0.75
-  - 0.9
-  - 1.05
-  foodPerStage: 1
-  foodGainMul: 1
-  growthStage: 0
-  isCaptured: 0
-  capturedBy: {fileID: 0}
 --- !u!50 &-9125560128062536466
 Rigidbody2D:
   serializedVersion: 5
@@ -140,7 +106,7 @@ Rigidbody2D:
   m_UseAutoMass: 0
   m_Mass: 0.5
   m_LinearDamping: 0
-  m_AngularDamping: 5
+  m_AngularDamping: 1.72
   m_GravityScale: 0.2
   m_Material: {fileID: 0}
   m_IncludeLayers:
@@ -189,7 +155,50 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 0.5
---- !u!114 &7072785507844618079
+--- !u!114 &4506072710588451775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3750958517354308534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c67a7df81fc64e94bba9b26f434a2494, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  id: 0
+  profile:
+    uid: 
+    hr: 0
+    cv: 0
+    range: 0
+    mean: 0
+  isCaptured: 0
+  capturedBy: {fileID: 0}
+--- !u!114 &5294315521255769479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3750958517354308534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff752150ec1e08e43bcb5ca9deb7d61e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stageScales:
+  - 0.45
+  - 0.6
+  - 0.75
+  - 0.9
+  - 1.05
+  baseRadius: 0.6
+  foodPerStage: 1
+  foodGainMul: 1
+  growthStage: 0
+--- !u!114 &7782577323663286395
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -202,15 +211,51 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   flow: {fileID: 0}
-  alignK: 3
-  quadDragK: 0
-  effectiveGravity: -3
+  profile:
+    uid: 
+    hr: 0
+    cv: 0
+    range: 0
+    mean: 0
+  defaultBpm: 80
+  alignK: 6
+  quadDragK: 0.35
+  effectiveGravity: -0.3
   noiseForce: 0.2
   noiseFreq: 0.25
   noiseSpatial: 1.7
   clampSpeed: 1
   maxSpeed: 10
   enforceMinSpeed: 1
-  minSpeed: 10.67
+  minSpeed: 0.5
   setVelocityHard: 1
   keepAliveAccel: 8
+  pulseSwimEnabled: 1
+  pulseForce: 12
+  pulseDuration: 0.12
+  pulseDirVelBias: 0.6
+  pulseAsImpulse: 0
+  pulseBpmRange: {x: 50, y: 120}
+--- !u!114 &-1767959107442199089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3750958517354308534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4a2235abf2dc7543a1b1de616217bc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeType: 0
+  color: {r: 1, g: 1, b: 1, a: 1}
+  radius: 0.6
+  profile:
+    uid: 
+    hr: 0
+    cv: 0
+    range: 0
+    mean: 0
+  agent: {fileID: 0}
+  baseMaterial: {fileID: 0}

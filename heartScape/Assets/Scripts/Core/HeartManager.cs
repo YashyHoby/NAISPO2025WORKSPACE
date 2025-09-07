@@ -16,33 +16,37 @@ public class HeartManager : MonoBehaviour
         if (despawnOffscreen) DespawnOffscreen();
     }
 
-    public HeartAgent Spawn(HeartProfile hp, Vector2 pos, Vector2 initialVel)
+    public HeartAgent Spawn(HeartProfile hp, Vector2 pos, Vector2 vel)
     {
         if (agents.Count >= maxAgents || agentPrefab == null) return null;
 
         var go = Instantiate(agentPrefab, pos, Quaternion.identity);
         var a  = go.GetComponent<HeartAgent>();
 
-        // 見た目・属性
-        a.profile   = hp;
-        a.shapeType = (ShapeType)Random.Range(0, 3);
-        a.color     = Color.HSVToRGB(Mathf.InverseLerp(50f, 120f, hp.hr), 0.75f, 1f);
-        a.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
-        a.growthStage = 0;
-        a.ApplyStageScale();
+        // ハブ
+        a.profile = hp;
+        a.id      = Random.Range(int.MinValue, int.MaxValue);
 
-        // 物理初速
-        var rb = go.GetComponent<Rigidbody2D>();
-        if (rb)
+        // Visual
+        var vis = go.GetComponent<HeartVisual>();
+        if (vis)
         {
-            rb.linearVelocity = initialVel;
-            // 水中っぽい推奨値（Prefab側で設定済なら不要）
-            rb.gravityScale = 0.2f;
-            rb.linearDamping = 1.5f;
-            rb.angularDamping = 5f;
-            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            //vis.shapeType = (ShapeType)Random.Range(0, 3);
+            vis.color     = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
         }
+
+        // Growth
+        var gr = go.GetComponent<HeartGrowth>();
+        if (gr)
+        {
+            gr.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
+            gr.growthStage = 0;
+            gr.ApplyStageScale();          // これが visual.radius を内部的に更新
+        }
+
+        // 物理（初速）
+        var rb = go.GetComponent<Rigidbody2D>();
+        if (rb) rb.linearVelocity = vel;   // 旧Unityなら rb.velocity
 
         agents.Add(a);
         return a;

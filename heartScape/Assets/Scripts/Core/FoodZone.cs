@@ -2,15 +2,20 @@ using UnityEngine;
 
 public class FoodZone : EventZone
 {
-    [Tooltip("秒あたりのFOOD供給量（1.0で約1段/秒；HeartAgent.foodPerStageと掛け合わせで調整）")]
-    public float feedPerSecond = 1.0f;
-
-    [Tooltip("半径上限（セーフティ）")]
-    public float rMax = 1.3f;
+    public float foodAmount = 0.25f;
 
     public override void Apply(HeartAgent a)
     {
-        a.Feed(feedPerSecond * Time.deltaTime);
-        a.radius = Mathf.Min(a.radius, rMax);
+        // 成長コンポーネントへ
+        var growth = a.GetComponent<HeartGrowth>();
+        if (growth) growth.Feed(foodAmount);
+
+        // 半径を使う処理がある場合は Visual から取得
+        var visual = a.GetComponent<HeartVisual>();
+        if (visual)
+        {
+            float r = visual.radius;
+            // 例）Gizmoやエフェクト計算など、必要なら r を使用
+        }
     }
 }

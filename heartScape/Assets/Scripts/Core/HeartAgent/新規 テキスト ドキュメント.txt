@@ -1,0 +1,188 @@
+了解しました ✅
+現在の4コンポーネント構成（HeartAgent / HeartVisual / HeartGrowth / HeartPhysics）について、\*\*README（使い方＋Inspector調整できる変数の説明付き）\*\*をまとめます。
+
+---
+
+# 🌟 Heart System README
+
+このシステムは「心オブジェクト（Heart）」の挙動を **データ／見た目／成長／物理** に分割して管理します。
+各機能は独立した MonoBehaviour コンポーネントで構成され、組み合わせて利用します。
+
+---
+
+## 📂 コンポーネント一覧
+
+### 1. **HeartAgent.cs**
+
+> データハブ（ID, Profile, 捕獲状態）
+
+* **Inspector 調整項目**
+
+  * `id` : 一意のID（未設定時はランダムで割り当て）
+  * `profile` : 心拍などを持つプロファイル（`HeartProfile` ScriptableObject などを想定）
+
+* **内部で管理**
+
+  * `isCaptured` : BubbleZone等に捕獲されているか
+  * `capturedBy` : 捕獲している BubbleZone への参照
+
+---
+
+### 2. **HeartVisual.cs**
+
+> 見た目（シェーダ制御・色・形・脈動表示）
+
+* **Inspector 調整項目**
+
+  * `shapeType` : Circle / Triangle / Box
+  * `color` : 色
+  * `radius` : 半径（主に `HeartGrowth` から更新される）
+  * `profile` : BPMを参照するプロファイル（未設定なら 70bpm で脈動）
+  * `agent` : 同じ GameObject の HeartAgent 参照（自動取得可）
+  * `baseMaterial` : シェーダ付きマテリアル（複製インスタンスを使用）
+
+* **シェーダに渡す変数**
+
+  * `_Pulse` : 脈動値（0〜1）
+  * `_Radius` : 半径
+  * `_Tint` : 色
+  * `_ShapeType` : 図形タイプ
+
+---
+
+### 3. **HeartGrowth.cs**
+
+> 成長／分裂処理（FOOD獲得で成長→最大段階で分裂）
+
+* **Inspector 調整項目**
+
+  * `stageScales[]` : 成長段階ごとのスケール倍率（例：0.45, 0.6, …）
+  * `baseRadius` : 基準半径
+  * `foodPerStage` : 1段階成長に必要な FOOD 量
+  * `foodGainMul` : FOOD 取得量の倍率
+
+* **自動管理**
+
+  * `growthStage` : 現在の成長段階 (0〜4)
+
+* **メソッド**
+
+  * `Feed(amount)` : FOOD を与えて成長させる
+  * `ApplyStageScale()` : 半径を計算して HeartVisual に反映
+
+* **挙動**
+
+  * 最大段階 (4) で FOOD を得ると **分裂**し、子オブジェクトを `HeartManager.Spawn()` 経由で生成
+
+---
+
+### 4. **HeartPhysics.cs**
+
+> 流体物理・拍動推進・速度制御
+
+* **Inspector 調整項目**
+
+  * **Flow参照**
+
+    * `flow` : シーン内の FlowManager2D（自動検出可）
+    * `profile` : 心拍プロファイル（未設定なら defaultBpm 使用）
+    * `defaultBpm` : プロファイル未設定時のBPM
+
+  * **Flow Push**
+
+    * `alignK` : 流速 u を押す力の係数（流れに乗る強さ）
+
+  * **Quadratic Drag**
+
+    * `quadDragK` : 速度²に比例する抗力（0で無効）
+
+  * **Effective Gravity**
+
+    * `effectiveGravity` : 下向きの実効重力（小さめでゆっくり沈む）
+
+  * **Noise**
+
+    * `noiseForce` : ランダムノイズの力
+    * `noiseFreq` : ノイズの時間周波数
+    * `noiseSpatial` : ノイズの空間周波数
+
+  * **Clamp**
+
+    * `clampSpeed` : 最高速度を制限するか
+    * `maxSpeed` : 最高速度値
+
+  * **Min Speed**
+
+    * `enforceMinSpeed` : 最低速度を強制するか
+    * `minSpeed` : 最低速度
+    * `setVelocityHard` : true=速度を直接補正 / false=力で徐々に補正
+    * `keepAliveAccel` : 力で補正する場合の加速度係数
+
+  * **Pulse Swim (クラゲ推進)**
+
+    * `pulseSwimEnabled` : 有効化フラグ
+    * `pulseForce` : 拍動ごとの加速強さ
+    * `pulseDuration` : 拍動で押す時間（インパルス時は無視）
+    * `pulseDirVelBias` : 拍動方向の決定（0=流れ優先, 1=速度優先）
+    * `pulseAsImpulse` : インパルスで瞬発的に押すか
+    * `pulseBpmRange` : HR をこの範囲に正規化して周期を決定
+
+---
+
+## ⚙️ セットアップ手順
+
+1. **GameObject “Heart”** を作成し、以下を付与
+
+   * Rigidbody2D（Linear Damping で惰性を調整）
+   * Collider2D
+   * HeartAgent
+   * HeartVisual
+   * HeartGrowth
+   * HeartPhysics
+
+2. **FlowManager2D** をシーンに配置
+   → HeartPhysics の `flow` に割り当て（未設定なら自動検出）
+
+3. **調整パラメータ**
+
+   * 見た目 → HeartVisual (`shapeType`, `color`, `baseMaterial`)
+   * 成長速度 → HeartGrowth (`foodPerStage`, `foodGainMul`)
+   * 物理挙動 → HeartPhysics (`alignK`, `quadDragK`, `effectiveGravity`, `minSpeed`, `maxSpeed`, `pulseForce` など)
+   * 惰性 → Rigidbody2D の **Linear Damping**
+
+---
+
+## 🎛️ 推奨初期値
+
+* **HeartPhysics**
+
+  * alignK = 6〜8
+  * quadDragK = 0.2〜0.4
+  * effectiveGravity = -3
+  * minSpeed = 0.3〜0.5
+  * maxSpeed = 10
+  * pulseForce = 10〜14
+  * pulseDuration = 0.1〜0.15
+
+* **Rigidbody2D**
+
+  * Linear Damping = 0.2〜0.4（惰性の強さ）
+
+* **HeartGrowth**
+
+  * baseRadius = 0.6
+  * foodPerStage = 1.0
+  * stageScales = \[0.45, 0.60, 0.75, 0.90, 1.05]
+
+---
+
+## 💡 備考
+
+* **半径は HeartVisual の `radius`** が唯一の参照元。Growth / Manager / 衝突判定はここを利用する。
+* **成長は HeartGrowth** に集約、FoodZone からは `GetComponent<HeartGrowth>().Feed(x)` で呼び出す。
+* **物理挙動は HeartPhysics** に集約、FlowManager2D の流れを力としてサンプリングする。
+* **見た目は HeartVisual** に集約、Shaderに値を渡して表現する。
+
+---
+
+👉 この README を **開発者向け**とするか、**チューニング用（非エンジニア向け）マニュアル**として書き直しますか？
