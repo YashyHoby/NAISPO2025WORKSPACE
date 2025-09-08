@@ -15,12 +15,13 @@ public class HeartGateway : MonoBehaviour
     public Transform[] emitters = new Transform[4];
 
     [Header("Launch Params")]
-    [Tooltip("基本射出速度")]
     public float baseSpeed = 3f;
-    [Tooltip("速度ジッタ（±）")]
     public float speedJitter = 0.5f;
-    [Tooltip("拡散角（deg）")]
     public float spreadDeg = 5f;
+
+    [Header("Data Source")]
+    [Tooltip("UID があれば DB を優先する")]
+    public bool preferDbIfUid = true;
 
     [Header("UDP (optional)")]
     public bool useUdp = false;
@@ -35,27 +36,19 @@ public class HeartGateway : MonoBehaviour
     public class HeartInput
     {
         public string uid;
-        public int switchNo; // 1..4 を想定（A=1, B=2, C=3, D=4）
-        public float hr;
-        public float cv;
-        public float range;
-        public float mean;
+        public int switchNo; // 1..4（A=1,B=2,C=3,D=4）
+        public float hr, cv, range, mean;
     }
 
     void Awake()
     {
-        // DB 利用時の初期化（存在しなければデフォルト返却） 
-        HeartDB.Load(); // Resources/heart_db.json を読む実装。:contentReference[oaicite:6]{index=6}
+        HeartDB.Load();
     }
 
-    void OnEnable()
-    {
-        if (useUdp) StartUdp();
-    }
-    void OnDisable() => StopUdp();
+    void OnEnable()  { if (useUdp) StartUdp(); }
+    void OnDisable() { StopUdp(); }
     void OnApplicationQuit() => StopUdp();
 
-    // --- DebugSpawner などから直接注入（模擬） ---
     public void Inject(HeartInput msg)
     {
         if (msg != null) queue.Enqueue(msg);
@@ -63,7 +56,6 @@ public class HeartGateway : MonoBehaviour
 
     void Update()
     {
-        // メインスレッドで安全にスポーン
         while (queue.TryDequeue(out var msg))
             SpawnFromMessage(msg);
     }
@@ -77,14 +69,32 @@ public class HeartGateway : MonoBehaviour
         var pad = emitters[idx];
         if (pad == null) { Debug.LogWarning($"[HeartGateway] Emitter for switch {m.switchNo} missing."); return; }
 
-        // メッセージ優先。空の場合は DB から補完
-        HeartProfile hp;
-        bool empty = (m.hr == 0f && m.cv == 0f && m.range == 0f && m.mean == 0f);
-        if (!string.IsNullOrEmpty(m.uid) && empty)
-            hp = HeartDB.Get(m.uid);                    // DB 参照（なければデフォルト）:contentReference[oaicite:7]{index=7}
-        else
-            hp = new HeartProfile { uid = string.IsNullOrEmpty(m.uid) ? $"UDP_{Guid.NewGuid():N}".Substring(0,8) : m.uid, hr = m.hr, cv = m.cv, range = m.range, mean = m.mean };
+        // --- プロファイル決定 ---
+        HeartProfile hp = null;
 
+        if (preferDbIfUid && !string.IsNullOrEmpty(m.uid))
+        {
+            hp = HeartDB.Get(m.uid);
+        }
+        else
+        {
+            bool hasMsgValues = !(m.hr == 0f && m.cv == 0f && m.range == 0f && m.mean == 0f);
+            if (hasMsgValues)
+            {
+                hp = new HeartProfile { uid = string.IsNullOrEmpty(m.uid) ? $"UDP_{Guid.NewGuid():N}".Substring(0, 8) : m.uid,
+                                        hr = m.hr, cv = m.cv, range = m.range, mean = m.mean };
+            }
+            else if (!string.IsNullOrEmpty(m.uid))
+            {
+                hp = HeartDB.Get(m.uid);
+            }
+            else
+            {
+                hp = HeartDB.Get(null);
+            }
+        }
+
+        // 射出位置・向き・初速
         Vector2 pos = pad.position;
         Vector2 dir = pad.right;
         if (spreadDeg > 0f)
@@ -95,7 +105,7 @@ public class HeartGateway : MonoBehaviour
         float spd = Mathf.Max(0f, baseSpeed + UnityEngine.Random.Range(-speedJitter, speedJitter));
         Vector2 vel = dir.normalized * spd;
 
-        manager.Spawn(hp, pos, vel);                    // 既存の Spawn をそのまま利用。:contentReference[oaicite:8]{index=8}
+        manager.Spawn(hp, pos, vel);
     }
 
     void StartUdp()
@@ -136,7 +146,7 @@ public class HeartGateway : MonoBehaviour
             {
                 var data = udp.Receive(ref ep);
                 var json = Encoding.UTF8.GetString(data);
-                var msg = JsonUtility.FromJson<HeartInput>(json);
+                var msg  = JsonUtility.FromJson<HeartInput>(json);
                 if (msg != null) queue.Enqueue(msg);
             }
             catch (ObjectDisposedException) { break; }
@@ -144,7 +154,6 @@ public class HeartGateway : MonoBehaviour
         }
     }
 
-    // 射出位置と向きの可視化
     void OnDrawGizmos()
     {
         if (emitters == null) return;
@@ -157,7 +166,7 @@ public class HeartGateway : MonoBehaviour
             var dir = t.right * 0.8f;
             Gizmos.DrawLine(t.position, t.position + dir);
             var left = Quaternion.Euler(0, 0, 150) * dir * 0.25f;
-            var right = Quaternion.Euler(0, 0, -150) * dir * 0.25f;
+            var right= Quaternion.Euler(0, 0,-150) * dir * 0.25f;
             Gizmos.DrawLine(t.position + dir, t.position + dir + left);
             Gizmos.DrawLine(t.position + dir, t.position + dir + right);
         }

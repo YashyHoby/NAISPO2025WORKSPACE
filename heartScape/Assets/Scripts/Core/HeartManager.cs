@@ -3,13 +3,23 @@ using System.Collections.Generic;
 
 public class HeartManager : MonoBehaviour
 {
+    public HeartAppearanceMapper appearance;
     public List<HeartAgent> agents = new();
     public GameObject agentPrefab;
     public int   maxAgents = 140;
 
-    // 画面外消しを使うなら true（ReflectiveBoundary を使う場合は false 推奨）
     public bool despawnOffscreen = false;
     public Vector2 despawnExtents = new Vector2(10f, 6f); // ±X, ±Y
+
+    void Awake()
+    {
+        if (appearance == null)
+        {
+            appearance = FindFirstObjectByType<HeartAppearanceMapper>();
+            if (appearance == null)
+                Debug.LogWarning("[HeartManager] HeartAppearanceMapper not set (fallback visuals).");
+        }
+    }
 
     void FixedUpdate()
     {
@@ -23,28 +33,35 @@ public class HeartManager : MonoBehaviour
         var go = Instantiate(agentPrefab, pos, Quaternion.identity);
         var a  = go.GetComponent<HeartAgent>();
 
-        // ハブ
         a.profile = hp;
         a.id      = Random.Range(int.MinValue, int.MaxValue);
 
-        // Visual
         var vis = go.GetComponent<HeartVisual>();
         if (vis)
         {
-            //vis.shapeType = (ShapeType)Random.Range(0, 3);
-            vis.color     = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
+            if (appearance != null)
+            {
+                appearance.Apply(hp, vis); // 形/色/半径（半径は appearance.setRadiusOnSpawn 次第）
+            }
+            else
+            {
+                vis.color = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
+            }
         }
 
-        // Growth
         var gr = go.GetComponent<HeartGrowth>();
         if (gr)
         {
-            gr.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
-            gr.growthStage = 0;
-            gr.ApplyStageScale();          // これが visual.radius を内部的に更新
+            // Mapperで半径を決める運用なら Growth による初期上書きをスキップ
+            bool mapperSetsRadius = (appearance != null && appearance.setRadiusOnSpawn);
+            if (!mapperSetsRadius)
+            {
+                gr.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
+                gr.growthStage = 0;
+                gr.ApplyStageScale(); // visual.radius を更新
+            }
         }
 
-        // 物理（初速）
         var rb = go.GetComponent<Rigidbody2D>();
         if (rb) rb.linearVelocity = vel;   // 旧Unityなら rb.velocity
 
@@ -68,7 +85,6 @@ public class HeartManager : MonoBehaviour
         }
     }
 
-    // デバッグ用：全消去
     public void ClearAll()
     {
         for (int i = agents.Count - 1; i >= 0; i--)

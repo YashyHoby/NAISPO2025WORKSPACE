@@ -1,14 +1,24 @@
 ﻿using UnityEngine;
 
-// 1/2/3/4 キーで A/B/C/D スイッチ由来の心・位置情報を模擬し、Gateway に投げる。
-// Space 長押しでランダム、R=10連射、C=全消去。
+// 1/2/3/4 キーで A/B/C/D を発射。DBモード時は UID→DB 参照、
+// 通常モード時はプリセット値をペイロード送信。
+// Space 長押しでランダム、R=10連射、C=全消去、F5=DBリロード。
 public class DebugSpawner : MonoBehaviour
 {
     [Header("Refs")]
     public HeartGateway gateway;
-    public HeartManager manager; // Cキーの全消去に使用（任意）:contentReference[oaicite:9]{index=9}
+    public HeartManager manager; // Cキーの全消去に使用（任意）
 
-    [Header("Presets (for 1-4)")]
+    [Header("Mode")]
+    public bool useHeartDB = true;
+
+    [Header("UIDs (DB mode for 1-4)")]
+    public string uid1 = "DBG_01";
+    public string uid2 = "DBG_02";
+    public string uid3 = "DBG_03";
+    public string uid4 = "DBG_04";
+
+    [Header("Presets (payload mode for 1-4)")]
     public HeartProfile presetA = new HeartProfile { uid="DBG_01", hr=72,  cv=0.18f, range=16, mean=78 };
     public HeartProfile presetB = new HeartProfile { uid="DBG_02", hr=95,  cv=0.32f, range=28, mean=88 };
     public HeartProfile presetC = new HeartProfile { uid="DBG_03", hr=60,  cv=0.10f, range=12, mean=70 };
@@ -21,22 +31,22 @@ public class DebugSpawner : MonoBehaviour
 
     void Awake()
     {
-        HeartDB.Load(); // DB を使う場合に備えて初期化（存在しなければ既定値を返す）。:contentReference[oaicite:10]{index=10}
+        HeartDB.Load();
         if (gateway == null) gateway = FindFirstObjectByType<HeartGateway>();
-        if (manager == null) manager = FindFirstObjectByType<HeartManager>();
+        if (manager == null) manager  = FindFirstObjectByType<HeartManager>();
     }
 
     void Update()
     {
         if (gateway == null) return;
 
-        // ワンショット（プリセット）
-        if (Input.GetKeyDown(KeyCode.Alpha1)) SendPreset(1, presetA);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) SendPreset(2, presetB);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) SendPreset(3, presetC);
-        if (Input.GetKeyDown(KeyCode.Alpha4)) SendPreset(4, presetD);
+        // 1..4
+        if (Input.GetKeyDown(KeyCode.Alpha1)) FireKey(1, presetA, uid1);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) FireKey(2, presetB, uid2);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) FireKey(3, presetC, uid3);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) FireKey(4, presetD, uid4);
 
-        // ランダム
+        // ランダム（Spaceを押した瞬間）
         if (Input.GetKeyDown(KeyCode.Space)) SendRandom();
 
         // 連続（Space 長押し）
@@ -54,31 +64,50 @@ public class DebugSpawner : MonoBehaviour
         // 便利キー
         if (Input.GetKeyDown(KeyCode.R)) for (int i = 0; i < 10; i++) SendRandom();
         if (Input.GetKeyDown(KeyCode.C) && manager != null) manager.ClearAll();
+        if (Input.GetKeyDown(KeyCode.F5)) HeartDB.Reload();
     }
 
-    void SendPreset(int sw, HeartProfile hp)
+    void FireKey(int sw, HeartProfile preset, string uid)
     {
-        var msg = new HeartGateway.HeartInput {
-            uid = hp.uid, switchNo = sw,
-            hr  = hp.hr,  cv = hp.cv, range = hp.range, mean = hp.mean
-        };
-        gateway.Inject(msg);
+        if (useHeartDB && !string.IsNullOrEmpty(uid))
+        {
+            // UIDのみ送る（数値0）→ Gateway 側の preferDbIfUid=true で DB を使用
+            var msg = new HeartGateway.HeartInput { uid = uid, switchNo = sw, hr=0, cv=0, range=0, mean=0 };
+            gateway.Inject(msg);
+        }
+        else
+        {
+            // 旧動作（ペイロードの数値をそのまま使用）
+            var msg = new HeartGateway.HeartInput
+            {
+                uid = preset.uid, switchNo = sw,
+                hr = preset.hr, cv = preset.cv, range = preset.range, mean = preset.mean
+            };
+            gateway.Inject(msg);
+        }
     }
 
     void SendRandom()
     {
         int sw = Random.Range(1, 5);
-        var hp = new HeartProfile {
-            uid = "DBG_RND_" + Random.Range(0, 999999).ToString("D6"),
-            hr = Random.Range(55f, 115f),
-            cv = Random.Range(0.05f, 0.5f),
-            range = Random.Range(10f, 35f),
-            mean = Random.Range(65f, 95f)
-        };
-        var msg = new HeartGateway.HeartInput {
-            uid = hp.uid, switchNo = sw,
-            hr = hp.hr, cv = hp.cv, range = hp.range, mean = hp.mean
-        };
-        gateway.Inject(msg);
+        if (useHeartDB)
+        {
+            // ランダム UID を投げる → DB に無ければ HeartDB.Default が適用
+            string uid = "DBG_RND_" + Random.Range(0, 999999).ToString("D6");
+            gateway.Inject(new HeartGateway.HeartInput { uid = uid, switchNo = sw, hr=0, cv=0, range=0, mean=0 });
+        }
+        else
+        {
+            var hp = new HeartProfile {
+                uid = "DBG_RND_" + Random.Range(0, 999999).ToString("D6"),
+                hr = Random.Range(55f, 115f),
+                cv = Random.Range(0.05f, 0.5f),
+                range = Random.Range(10f, 35f),
+                mean = Random.Range(65f, 95f)
+            };
+            gateway.Inject(new HeartGateway.HeartInput {
+                uid = hp.uid, switchNo = sw, hr = hp.hr, cv = hp.cv, range = hp.range, mean = hp.mean
+            });
+        }
     }
 }
