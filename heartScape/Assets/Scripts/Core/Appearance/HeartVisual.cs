@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public enum ShapeType { Circle, Triangle, Box }
 
@@ -8,17 +8,17 @@ public class HeartVisual : MonoBehaviour
     [Header("Visual")]
     public ShapeType shapeType = ShapeType.Circle;
     public Color     color     = Color.white;
-    [Tooltip("�����ځE�����蔻��̊���a�BHeartGrowth����X�V����܂��B")]
+    [Tooltip("・ｽ・ｽ・ｽ・ｽ・ｽﾚ・・ｽ・ｽ・ｽ・ｽ・ｽ阡ｻ・ｽ・ｽﾌ基準・ｽ・ｽ・ｽa・ｽBHeartGrowth・ｽ・ｽ・ｽ・ｽX・ｽV・ｽ・ｽ・ｽ・ｽﾜゑｿｽ・ｽB")]
     public float     radius    = 0.6f;
 
     [Header("Refs (optional)")]
-    [Tooltip("�S���Ȃǂ̃p�����[�^�����v���t�@�C���B���ݒ�Ȃ�70bpm ���g�p")]
+    [Tooltip("・ｽS・ｽ・ｽ・ｽﾈどのパ・ｽ・ｽ・ｽ・ｽ・ｽ[・ｽ^・ｽ・ｽ・ｽ・ｽ・ｽﾂプ・ｽ・ｽ・ｽt・ｽ@・ｽC・ｽ・ｽ・ｽB・ｽ・ｽ・ｽﾝ抵ｿｽﾈゑｿｽ70bpm ・ｽ・ｽ・ｽg・ｽp")]
     public HeartProfile profile;
-    [Tooltip("���� GameObject �ɂ���ꍇ�ɎQ�Ƃ��܂��B�C�ӁI")]
+    [Tooltip("・ｽ・ｽ・ｽ・ｽ GameObject ・ｽﾉゑｿｽ・ｽ・ｽ鼾・ｿｽﾉ参・ｽﾆゑｿｽ・ｽﾜゑｿｽ・ｽB・ｽC・ｽﾓ！")]
     public HeartAgent agent;
 
     [Header("Material")]
-    [Tooltip("�x�[�X�ɂ���}�e���A���B�C���X�^���X�����Ďg�p���܂�")]
+    [Tooltip("・ｽx・ｽ[・ｽX・ｽﾉゑｿｽ・ｽ・ｽ}・ｽe・ｽ・ｽ・ｽA・ｽ・ｽ・ｽB・ｽC・ｽ・ｽ・ｽX・ｽ^・ｽ・ｽ・ｽX・ｽ・ｽ・ｽ・ｽ・ｽﾄ使・ｽp・ｽ・ｽ・ｽﾜゑｿｽ")]
     public Material baseMaterial;
 
     Material        mat;
@@ -88,18 +88,34 @@ public class HeartVisual : MonoBehaviour
 
     void Update()
     {
+        RefreshMaterial(Time.time);
+    }
+
+    public void RefreshMaterial()
+    {
+        RefreshMaterial(Time.time);
+    }
+
+    public void RefreshMaterial(float timeSeconds)
+    {
+        ApplyMaterialState(timeSeconds);
+    }
+
+    void ApplyMaterialState(float timeSeconds)
+    {
+        Initialize();
+
         float bpm    = (profile != null) ? profile.hr : 70f;
         float bpm01  = Mathf.InverseLerp(50f, 120f, bpm);
         float beatHz = Mathf.Lerp(1.0f, 2.4f, bpm01);
-        float pulse  = (Mathf.Sin(Time.time * beatHz * Mathf.PI * 2f) + 1f) * 0.5f;
+        float pulse  = (Mathf.Sin(timeSeconds * beatHz * Mathf.PI * 2f) + 1f) * 0.5f;
 
-        if (mat != null)
-        {
-            mat.SetFloat("_Pulse",     pulse);
-            mat.SetFloat("_Radius",    radius);
-            mat.SetColor("_Tint",      color);
-            mat.SetFloat("_ShapeType", (float)shapeType);
-        }
+        if (mat == null) return;
+
+        mat.SetFloat("_Pulse",     pulse);
+        mat.SetFloat("_Radius",    radius);
+        mat.SetColor("_Tint",      color);
+        mat.SetFloat("_ShapeType", (float)shapeType);
     }
 
     void OnDestroy()
@@ -114,7 +130,7 @@ public class HeartVisual : MonoBehaviour
         }
     }
 
-    /// <summary>�O���iGrowth�Ȃǁj���甼�a�X�V</summary>
+    /// <summary>・ｽO・ｽ・ｽ・ｽiGrowth・ｽﾈど）・ｽ・ｽ・ｽ逕ｼ・ｽa・ｽX・ｽV</summary>
     public void SetRadius(float r)
     {
         ApplyRadiusScale(Mathf.Max(0f, r));
