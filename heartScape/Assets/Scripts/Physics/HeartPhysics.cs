@@ -1,55 +1,99 @@
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class HeartPhysics : MonoBehaviour
 {
+    [Tooltip("流体シミュレーションを提供する FlowManager2D への参照です。未設定の場合はシーンから自動取得します。")]
     public FlowManager2D flow;
 
     [Header("Refs (optional)")]
-    [Tooltip("心拍などのパラメータを持つプロファイル。未設定なら HeartVisual から自動取得、さらに無ければ defaultBpm を使用")]
+    [Tooltip("心拍や見た目のパラメータを持つ HeartProfile です。未設定の場合は HeartVisual から取得し、それもなければ defaultBpm を使います。")]
     public HeartProfile profile;
-    [Tooltip("プロファイル未設定時に使う BPM")]
+    [Tooltip("プロファイルがない場合に使う基準 BPM です。")]
     public float defaultBpm = 80f;
 
     [Header("Flow Push (B-plan)")]
-    [Tooltip("流速uを“押す力”として与える係数（大きいほど強く押す）")]
+    [Tooltip("流れの速度ベクトルを押し出す力として加える係数です。大きいほど強く流れに沿って押し出します。")]
     public float alignK = 6f;
 
     [Header("Quadratic Drag (optional)")]
-    [Tooltip("2次抗力係数（速いほど強く減速）。使わないなら0")]
+    [Tooltip("速度の二乗に比例する抵抗の係数です。0 にすると無効になります。")]
     public float quadDragK = 0.35f;
 
     [Header("Effective Gravity")]
-    [Tooltip("下向きの実効重力（小さめで“ゆっくり沈む”）")]
+    [Tooltip("Y 軸下方向に働く疑似重力の強さです。小さいほどゆっくり沈みます。")]
     public float effectiveGravity = -3f;
 
     [Header("Noise (optional)")]
+    [Tooltip("ランダムな揺らぎの力の大きさです。0 にするとノイズを無効にします。")]
     public float noiseForce   = 0.2f;
+    [Tooltip("ノイズ力を更新する時間の速さです。大きいほど変化が速くなります。")]
     public float noiseFreq    = 0.25f;
+    [Tooltip("ノイズの空間スケールです。大きいほど広い範囲でゆるやかに変化します。")]
     public float noiseSpatial = 1.7f;
 
+    [Header("Collision Bounce")]
+    [Tooltip("衝突時にスクリプトで反発を計算するかどうかです。")]
+    public bool  collisionBounceEnabled   = true;
+    [Tooltip("反発係数です。0 で吸収し、1 で弾性、2 以上で強い跳ね返りになります。")]
+    [Range(0f, 2f)] public float collisionRestitution = 0.8f;
+    [Tooltip("反発を適用するために必要な最小の法線速度です。")]
+    public float collisionImpactThreshold = 0.2f;
+
+    [Header("Collision Visual Bounce")]
+    [Tooltip("衝突時に見た目だけを潰して伸ばすアニメーションを再生するかどうかです。")]
+    public bool  collisionVisualEnabled = true;
+    [Tooltip("最大の潰れ量に達するとみなす衝突速度です。")]
+    public float collisionImpactForMaxVisual = 4f;
+    [Tooltip("見た目に適用する最大の潰れ量です。0 にすると変形しません。")]
+    [Range(0f, 0.8f)] public float collisionVisualMaxSquash = 0.2f;
+    [Tooltip("見た目の弾むアニメーションが収束するまでの時間です（秒）。")]
+    public float collisionVisualDuration = 0.45f;
+    [Tooltip("潰れ伸びアニメーションの振動数です（Hz）。")]
+    public float collisionVisualFrequency = 6f;
+    [Tooltip("潰れ伸びアニメーションの減衰係数です。大きいほど早く収束します。")]
+    public float collisionVisualDamping = 4f;
+
     [Header("Clamp")]
+    [Tooltip("速度の上限を適用するかどうかです。")]
     public bool  clampSpeed = true;
+    [Tooltip("上限として使用する最大速度です。clampSpeed が有効なときに適用されます。")]
     public float maxSpeed   = 10f;
 
     [Header("Min Speed (keep alive)")]
+    [Tooltip("最低速度を維持して動きを止めないようにするかどうかです。")]
     public bool  enforceMinSpeed = true;
-    public float minSpeed        = 0.5f;   // これ未満にはしない
-    public bool  setVelocityHard = true;   // true: 直に底上げ / false: 力で底上げ
-    public float keepAliveAccel  = 8f;     // false時の加速強さ
+    [Tooltip("維持したい最低速度です。これ未満になると補正します。")]
+    public float minSpeed        = 0.5f;
+    [Tooltip("最低速度を下回ったときに速度を直接書き換えるかどうかです。false の場合は力で加速します。")]
+    public bool  setVelocityHard = true;
+    [Tooltip("力で最低速度を補うときに使う加速度係数です。setVelocityHard が false のときに使用します。")]
+    public float keepAliveAccel  = 8f;
 
     [Header("Pulse Swim (jellyfish)")]
+    [Tooltip("拍動による推進を有効にするかどうかです。")]
     public bool   pulseSwimEnabled = true;
-    [Tooltip("拍動の加速強さ（連続力モード時は力、インパルス時は衝撃量）")]
-    public float  pulseForce = 12f;          // 8〜18 目安
-    [Tooltip("拍動で押し続ける時間（秒）。インパルス時は無視")]
-    public float  pulseDuration = 0.12f;     // 0.08〜0.16 目安
-    [Range(0f,1f)] public float pulseDirVelBias = 0.6f; // 0=流れ,1=現在速度
+    [Tooltip("拍動 1 回あたりの推進力です。インパルスモードでは瞬間的な衝撃量になります。")]
+    public float  pulseForce = 12f;
+    [Tooltip("連続力モードで力を加え続ける時間です（秒）。インパルスモードでは使用しません。")]
+    public float  pulseDuration = 0.12f;
+    [Tooltip("拍動の進行方向を流れベクトルと現在速度のどちらに寄せるかを決める係数です。0 で流れ、1 で現在速度です。")]
+    [Range(0f,1f)] public float pulseDirVelBias = 0.6f;
+    [Tooltip("拍動をインパルスとして適用するかどうかです。true で瞬間的に加速します。")]
     public bool   pulseAsImpulse = false;
+    [Tooltip("拍動の BPM をこの範囲に収めます。")]
     public Vector2 pulseBpmRange = new Vector2(50f, 120f);
 
     Rigidbody2D rb;
     float seed;
+
+    MeshFilter meshFilter;
+    Mesh        visualMesh;
+    Vector3[]   baseVertices;
+    Vector3[]   workingVertices;
+    Coroutine   collisionVisualRoutine;
+    Vector2     lastBounceAxis = Vector2.right;
 
     // Pulse 内部状態
     float pulsePhase;   // 0..1 周回
@@ -59,6 +103,8 @@ public class HeartPhysics : MonoBehaviour
     {
         rb   = GetComponent<Rigidbody2D>();
         seed = Random.Range(0f, 10000f);
+
+        SetupVisualMesh();
 
         // 可能なら HeartVisual から profile を拝借
         if (profile == null)
@@ -77,6 +123,23 @@ public class HeartPhysics : MonoBehaviour
 
         if (flow == null)
             flow = FindFirstObjectByType<FlowManager2D>(FindObjectsInactive.Exclude);
+    }
+
+    void OnEnable()
+    {
+        if (visualMesh == null)
+            SetupVisualMesh();
+        ResetVisualDeform();
+    }
+
+    void OnDisable()
+    {
+        if (collisionVisualRoutine != null)
+        {
+            StopCoroutine(collisionVisualRoutine);
+            collisionVisualRoutine = null;
+        }
+        ResetVisualDeform();
     }
 
 #if UNITY_EDITOR
@@ -178,6 +241,160 @@ public class HeartPhysics : MonoBehaviour
         }
     }
 
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        HandleCollisionBounce(collision);
+    }
+
+    void HandleCollisionBounce(Collision2D collision)
+    {
+        if ((collisionBounceEnabled || collisionVisualEnabled) == false || rb == null) return;
+
+        Vector2 velocity = rb.linearVelocity;
+        Vector2 bestNormal = Vector2.zero;
+        float strongestDot = 0f;
+
+        int contactCount = collision.contactCount;
+        for (int i = 0; i < contactCount; i++)
+        {
+            var contact = collision.GetContact(i);
+            float dot = Vector2.Dot(velocity, contact.normal);
+            if (dot < strongestDot)
+            {
+                strongestDot = dot;
+                bestNormal = contact.normal;
+            }
+        }
+
+        if (bestNormal == Vector2.zero)
+        {
+            Vector2 rel = collision.relativeVelocity;
+            if (rel.sqrMagnitude > 1e-6f)
+            {
+                bestNormal = -rel.normalized;
+                strongestDot = Vector2.Dot(velocity, bestNormal);
+            }
+        }
+
+        if (bestNormal == Vector2.zero || strongestDot >= 0f) return;
+
+        float impactSpeed = -strongestDot;
+
+        if (collisionBounceEnabled && impactSpeed >= collisionImpactThreshold)
+        {
+            Vector2 newVel = velocity - (1f + collisionRestitution) * strongestDot * bestNormal;
+            rb.linearVelocity = newVel;
+            velocity = newVel;
+        }
+
+        if (collisionVisualEnabled && impactSpeed > 0f)
+        {
+            Vector2 incomingDir = (velocity.sqrMagnitude > 1e-6f) ? velocity.normalized : -bestNormal;
+            TriggerVisualBounce(incomingDir, impactSpeed);
+        }
+    }
+
+    void SetupVisualMesh()
+    {
+        meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null) return;
+
+        visualMesh = meshFilter.mesh;
+        if (visualMesh == null) return;
+
+        visualMesh.MarkDynamic();
+
+        var verts = visualMesh.vertices;
+        baseVertices = new Vector3[verts.Length];
+        workingVertices = new Vector3[verts.Length];
+        for (int i = 0; i < verts.Length; i++)
+        {
+            baseVertices[i] = verts[i];
+            workingVertices[i] = verts[i];
+        }
+
+        lastBounceAxis = Vector2.right;
+    }
+
+    void ResetVisualDeform()
+    {
+        if (visualMesh == null || baseVertices == null) return;
+
+        visualMesh.vertices = baseVertices;
+        visualMesh.RecalculateBounds();
+
+        if (workingVertices != null)
+        {
+            for (int i = 0; i < workingVertices.Length; i++)
+                workingVertices[i] = baseVertices[i];
+        }
+    }
+
+    void TriggerVisualBounce(Vector2 axis, float impactSpeed)
+    {
+        if (!collisionVisualEnabled || collisionVisualMaxSquash <= 0f || visualMesh == null || baseVertices == null) return;
+        if (impactSpeed <= 1e-4f) return;
+
+        float normalised = (collisionImpactForMaxVisual > 0f) ? Mathf.Clamp01(impactSpeed / collisionImpactForMaxVisual) : 1f;
+        float amplitude = collisionVisualMaxSquash * normalised;
+        if (amplitude <= 1e-4f) return;
+
+        Vector2 axisNorm = axis.sqrMagnitude > 1e-6f ? axis.normalized : lastBounceAxis;
+        if (axisNorm == Vector2.zero) axisNorm = Vector2.right;
+
+        if (collisionVisualRoutine != null)
+        {
+            StopCoroutine(collisionVisualRoutine);
+        }
+        collisionVisualRoutine = StartCoroutine(VisualBounceRoutine(axisNorm, amplitude));
+    }
+
+    IEnumerator VisualBounceRoutine(Vector2 axis, float amplitude)
+    {
+        float timer = 0f;
+        float duration = Mathf.Max(0.001f, collisionVisualDuration);
+        float frequency = Mathf.Max(0.01f, collisionVisualFrequency);
+
+        while (timer < duration)
+        {
+            float t = timer / duration;
+            float damping = Mathf.Exp(-collisionVisualDamping * t);
+            float oscillation = Mathf.Cos(frequency * timer * Mathf.PI * 2f);
+            ApplyVisualSquash(axis, amplitude * damping * oscillation);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        ApplyVisualSquash(axis, 0f);
+        collisionVisualRoutine = null;
+    }
+
+    void ApplyVisualSquash(Vector2 axis, float amount)
+    {
+        if (visualMesh == null || baseVertices == null || workingVertices == null) return;
+
+        Vector2 norm = axis.sqrMagnitude > 1e-6f ? axis.normalized : Vector2.right;
+        Vector2 perp = new Vector2(-norm.y, norm.x);
+
+        float clamped = Mathf.Clamp(amount, -collisionVisualMaxSquash, collisionVisualMaxSquash);
+        float alongScale = Mathf.Clamp(1f - clamped, 0.25f, 2.5f);
+        float perpScale  = Mathf.Clamp(1f + clamped, 0.25f, 2.5f);
+
+        for (int i = 0; i < baseVertices.Length; i++)
+        {
+            Vector3 baseV = baseVertices[i];
+            Vector2 plane = new Vector2(baseV.x, baseV.y);
+            float along = Vector2.Dot(plane, norm);
+            float side = Vector2.Dot(plane, perp);
+            Vector2 scaled = norm * (along * alongScale) + perp * (side * perpScale);
+            workingVertices[i] = new Vector3(scaled.x, scaled.y, baseV.z);
+        }
+
+        visualMesh.vertices = workingVertices;
+        visualMesh.RecalculateBounds();
+        lastBounceAxis = norm;
+    }
+
     Vector2 ComputePulseDir(Vector2 v, Vector2 u)
     {
         Vector2 a = (v.sqrMagnitude > 1e-8f) ? v.normalized : Vector2.zero;
@@ -198,3 +415,5 @@ public class HeartPhysics : MonoBehaviour
     /// <summary>外部からプロファイルを差し替え</summary>
     public void SetProfile(HeartProfile p) => profile = p;
 }
+
+

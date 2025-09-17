@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 7782577323663286395}
   - component: {fileID: -1767959107442199089}
   m_Layer: 0
-  m_Name: HeartAgent 2
+  m_Name: HeartAgent
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -217,13 +217,22 @@ MonoBehaviour:
     cv: 0
     range: 0
     mean: 0
-  defaultBpm: 80
+  defaultBpm: 200
   alignK: 6
   quadDragK: 0.35
-  effectiveGravity: -0.3
+  effectiveGravity: -0.1
   noiseForce: 0.2
   noiseFreq: 0.25
   noiseSpatial: 1.7
+  collisionBounceEnabled: 1
+  collisionRestitution: 0.3
+  collisionImpactThreshold: 2.5
+  collisionVisualEnabled: 1
+  collisionImpactForMaxVisual: 4
+  collisionVisualMaxSquash: 0.411
+  collisionVisualDuration: 1.95
+  collisionVisualFrequency: 5.93
+  collisionVisualDamping: 4
   clampSpeed: 1
   maxSpeed: 10
   enforceMinSpeed: 1

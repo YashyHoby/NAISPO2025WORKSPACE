@@ -1,77 +1,77 @@
 using UnityEngine;
 
 /// <summary>
-/// å¿ƒæƒ…å ±(HeartProfile)ã‹ã‚‰ å½¢/è‰²/åŠå¾„ ã‚’æ±ºå®šè«–çš„ã«å‰²ã‚Šå½“ã¦ã‚‹ãƒãƒƒãƒ‘ãƒ¼ã€‚
-/// å€¤åŸŸã‚„åˆ†å¸ƒã®åã‚Šã«åˆã‚ã›ã¦ã‚¬ãƒ³ãƒã§å‡ã—ã€è¦‹ãŸç›®ãŒâ€œãã“ãã“ä¸€æ§˜â€ã«ã°ã‚‰ã‘ã‚‹ã‚ˆã†èª¿æ•´ã€‚
+/// S”î•ñ(HeartProfile)‚©‚ç Œ`/F/”¼Œa‚ğŒˆ’è˜_“I‚ÉŠ„‚è“–‚Ä‚éƒ}ƒbƒp[B
+/// ’lˆæ‚â•ª•z‚Ì•Î‚è‚É‡‚í‚¹‚ÄƒKƒ“ƒ}‚Å•â³‚µAŒ©‚½–Ú‚ªg‚»‚±‚»‚±ˆê—lh‚É‚Î‚ç‚¯‚é‚æ‚¤’²®B
 /// </summary>
 public class HeartAppearanceMapper : MonoBehaviour
 {
     [Header("Expected Ranges (tune to your dataset)")]
-    [Tooltip("HR (bpm) ã®æƒ³å®šä¸‹é™/ä¸Šé™ã€‚æ­£è¦åŒ–ã«ä½¿ç”¨")]
+    [Tooltip("HR (bpm) ‚Ì‘z’è‰ºŒÀ/ãŒÀB³‹K‰»‚Ég—p")]
     public Vector2 hrRange   = new Vector2(50f, 120f);
-    [Tooltip("CV ã®æƒ³å®šä¸‹é™/ä¸Šé™ã€‚æ­£è¦åŒ–ã«ä½¿ç”¨")]
+    [Tooltip("CV ‚Ì‘z’è‰ºŒÀ/ãŒÀB³‹K‰»‚Ég—p")]
     public Vector2 cvRange   = new Vector2(0.05f, 0.50f);
-    [Tooltip("Range ã®æƒ³å®šä¸‹é™/ä¸Šé™ã€‚æ­£è¦åŒ–ã«ä½¿ç”¨")]
+    [Tooltip("Range ‚Ì‘z’è‰ºŒÀ/ãŒÀB³‹K‰»‚Ég—p")]
     public Vector2 rngRange  = new Vector2(10f, 35f);
-    [Tooltip("Mean ã®æƒ³å®šä¸‹é™/ä¸Šé™ã€‚æ­£è¦åŒ–ã«ä½¿ç”¨ï¼ˆåŠå¾„ã«ä½¿ç”¨ï¼‰")]
+    [Tooltip("Mean ‚Ì‘z’è‰ºŒÀ/ãŒÀB³‹K‰»‚Ég—pB”¼Œa‚Ég—p")]
     public Vector2 meanRange = new Vector2(65f, 95f);
 
     [Header("Distribution Shaping (gamma) 0.1~3")]
-    [Tooltip("HR æ­£è¦åŒ–å€¤ã®ã‚¬ãƒ³ãƒï¼ˆ<1 åºƒã’ã‚‹ / >1 ã¤ã¶ã™ï¼‰")]
+    [Tooltip("HR ³‹K‰»’l‚ÌƒKƒ“ƒ}B<1 ‚ÅL‚Î‚µ/ >1 ‚Å‚Â‚Ô‚·B")]
     public float hrGamma   = 0.9f;
-    [Tooltip("CV æ­£è¦åŒ–å€¤ã®ã‚¬ãƒ³ãƒ")]
+    [Tooltip("CV ³‹K‰»’l‚ÌƒKƒ“ƒ}")]
     public float cvGamma   = 0.9f;
-    [Tooltip("Range æ­£è¦åŒ–å€¤ã®ã‚¬ãƒ³ãƒ")]
+    [Tooltip("Range ³‹K‰»’l‚ÌƒKƒ“ƒ}")]
     public float rngGamma  = 0.9f;
-    [Tooltip("Mean æ­£è¦åŒ–å€¤ã®ã‚¬ãƒ³ãƒï¼ˆåŠå¾„ç”¨ï¼‰")]
+    [Tooltip("Mean ³‹K‰»’l‚ÌƒKƒ“ƒ}i”¼Œa‚Ég—pj")]
     public float meanGamma = 0.9f;
 
     [Header("Color (HSV)")]
-    [Tooltip("Sï¼ˆå½©åº¦ï¼‰ã®ä¸‹é™/ä¸Šé™")]
+    [Tooltip("S‚ÌÊ“xƒŒƒ“ƒW: ‰ºŒÀ/ãŒÀ")]
     public Vector2 satRange = new Vector2(0.55f, 0.95f);
-    [Tooltip("Vï¼ˆæ˜åº¦ï¼‰ã®ä¸‹é™/ä¸Šé™")]
+    [Tooltip("V‚Ì–¾“xƒŒƒ“ƒW: ‰ºŒÀ/ãŒÀ")]
     public Vector2 valRange = new Vector2(0.85f, 1.00f);
-    [Tooltip("Hue ã‚’ HR åŸºæº–ã§æ±ºã‚ã‚‹éš›ã®é‡ã¿ï¼ˆcv/range ã®å½±éŸ¿åº¦ï¼‰")]
+    [Tooltip("Hue ‚ğ HR Šî€‚ÅŒˆ‚ß‚éÛ‚Ìd‚İBcv/range ‚Ì‰e‹¿“xB")]
     public Vector3 hueWeights = new Vector3(0.65f, 0.25f, 0.10f); // (hr, cv, range)
 
     [Header("Radius (pixels or world units)")]
-    [Tooltip("åˆæœŸåŠå¾„ã®ä¸‹é™/ä¸Šé™ï¼ˆHeartVisual.radius ã¸é©ç”¨ï¼‰")]
+    [Tooltip("‰Šú”¼Œa‚Ì‰ºŒÀ/ãŒÀiHeartVisual.radius ‚Ö“K—pj")]
     public Vector2 radiusRange = new Vector2(0.15f, 0.45f);
-    [Tooltip("Spawn æ™‚ã« radius ã‚’ä¸Šæ›¸ãã™ã‚‹ã‹ï¼ˆä»–ã®æˆé•·ã‚·ã‚¹ãƒ†ãƒ ãŒã‚ã‚‹ãªã‚‰OFFæ¨å¥¨ï¼‰")]
+    [Tooltip("Spawn ‚É radius ‚ğã‘‚«‚·‚é‚©BHeartVisual.SetRadius ‚É‚æ‚Á‚Ä Transform ƒXƒP[ƒ‹‚à“¯ŠúB")]
     public bool setRadiusOnSpawn = true;
 
     [Header("Shape")]
-    [Tooltip("ã‚·ãƒ¼ãƒ³ã«å­˜åœ¨ã™ã‚‹ ShapeType ã®ç·æ•°ï¼ˆHeartVisualã®åˆ—æŒ™æ•°ã«åˆã‚ã›ã‚‹ï¼‰")]
-    public int shapeCount = 3; // ä¾‹: 0=Circle,1=Triangle,2=Box
+    [Tooltip("ƒV[ƒ“‚É‘¶İ‚·‚é ShapeType ‚Ì‘”BHeartVisual‚Ì—ñ‹“”‚É‡‚í‚¹‚éB")]
+    public int shapeCount = 3; // ‰¼: 0=Circle,1=Triangle,2=Box
 
-    // === å…¬é–‹APIï¼šã“ã‚Œã‚’å‘¼ã¹ã°è¦‹ãŸç›®ãŒæ±ºã¾ã‚‹ ===
+    // === ŒöŠJAPI: ‚±‚ê‚ğŒÄ‚×‚ÎŒ©‚½–Ú‚ªŒˆ‚Ü‚é ===
     public void Apply(HeartProfile hp, HeartVisual vis)
     {
         if (hp == null || vis == null) return;
 
-        // 1) æ­£è¦åŒ– + åˆ†å¸ƒè£œæ­£ï¼ˆã‚¬ãƒ³ãƒï¼‰
+        // 1) ³‹K‰» + •ª•zƒVƒFƒCƒv: pow ³‹K‰»
         float h = PowNorm(hp.hr,    hrRange,   hrGamma);
         float c = PowNorm(hp.cv,    cvRange,   cvGamma);
         float r = PowNorm(hp.range, rngRange,  rngGamma);
         float m = PowNorm(hp.mean,  meanRange, meanGamma);
 
-        // 2) å½¢ï¼ˆæº–ä¸€æ§˜åŒ–ã—ã¦ 0..1 â†’ 0..shapeCount-1ï¼‰
-        //    äº’ã„ã«ç„¡ç†æ•°ã£ã½ã„ä¿‚æ•°ã§ç·šå½¢çµåˆ â†’ frac ã§åŒ…çµ¡ï¼ˆå€¤åŸŸåã‚Šã§ã‚‚ç¨‹ã‚ˆãæ•£ã‚‹ï¼‰
+        // 2) Œ`ó: €ˆê—l‰»‚µ‚Ä 0..1 ¨ 0..shapeCount-1
+        //    Œİ‚¢‚É–³‘ŠŠÖ‚Á‚Û‚¢ŒW”‚ÅüŒ`Œ‹‡ ¨ frac ‚ÅŠÛ‚ßA’lˆæ•Î‚è‚Å‚à’ö‚æ‚­U‚éB
         float u = Frac(h * 0.754877666f + c * 0.569840291f + r * 0.438695021f + m * 0.271828182f);
         int idx = Mathf.Clamp(Mathf.FloorToInt(u * shapeCount), 0, shapeCount - 1);
         vis.shapeType = (ShapeType)idx;
 
-        // 3) è‰²ï¼ˆHSVï¼‰
-        //    Hue: HRä¸»è»¸ + CV/Rangeã§å¾®æ‹¡æ•£ â†’ 0..1 wrap
+        // 3) F: HSV
+        //    Hue: HRå² + CV/Range‚Å”÷ŠgU ¨ 0..1 wrap
         float hue = Frac(h * hueWeights.x + c * hueWeights.y + r * hueWeights.z);
-        float sat = Mathf.Lerp(satRange.x, satRange.y, c); // CV é«˜ã„ã»ã©é®®ã‚„ã‹
-        float val = Mathf.Lerp(valRange.x, valRange.y, r); // Range åºƒã„ã»ã©æ˜ã‚‹ã‚
+        float sat = Mathf.Lerp(satRange.x, satRange.y, c); // CV ‚‚¢‚Ù‚Ç‘N‚â‚©
+        float val = Mathf.Lerp(valRange.x, valRange.y, r); // Range L‚¢‚Ù‚Ç–¾‚é‚ß
         vis.color = Color.HSVToRGB(hue, sat, val);
 
-        // 4) åŠå¾„ï¼ˆmean ä¸»è»¸ã€‚åˆ†å¸ƒè£œæ­£æ¸ˆã¿ m ã‚’ä½¿ç”¨ï¼‰
+        // 4) ”¼Œa: Mean å²Bpow³‹KÏ‚İ m ‚ğg—pB
         if (setRadiusOnSpawn)
         {
-            vis.radius = Mathf.Lerp(radiusRange.x, radiusRange.y, m);
+            vis.SetRadius(Mathf.Lerp(radiusRange.x, radiusRange.y, m));
         }
     }
 
@@ -86,8 +86,8 @@ public class HeartAppearanceMapper : MonoBehaviour
             t = Mathf.InverseLerp(minmax.x, minmax.y, v);
         }
         t = Mathf.Clamp01(t);
-        // ã‚¬ãƒ³ãƒ<1: ä¸­å¤®ã‚’åºƒã’ç«¯ã‚’å¼•ãä¼¸ã°ã— â†’ å‡ã—åŠ¹æœ
-        // ã‚¬ãƒ³ãƒ>1: ä¸­å¤®ã‚’ã¤ã¶ã—ã¦ç«¯ã‚’å¯„ã›ã‚‹
+        // ƒKƒ“ƒ}<1: ’†‰›‚ğL‚Î‚µ’[‚ğˆø‚«L‚Î‚· ¨ ‹Ïˆê‰»Œø‚«–Ú
+        // ƒKƒ“ƒ}>1: ’†‰›‚ğ‚Â‚Ô‚µ‚Ä’[‚ğ‹­’²
         return Mathf.Pow(t, Mathf.Max(0.01f, gamma));
     }
 }
