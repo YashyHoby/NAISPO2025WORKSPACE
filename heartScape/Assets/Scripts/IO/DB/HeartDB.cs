@@ -10,9 +10,9 @@ public static class HeartDB
 
     public static bool IsLoaded => dict != null;
 
-    public static void Load()
+    public static void Load(bool forceReload = false)
     {
-        if (dict != null) return;
+        if (!forceReload && dict != null) return;
 
         var ta = Resources.Load<TextAsset>("heart_db");
         if (ta == null)
@@ -44,8 +44,7 @@ public static class HeartDB
 
     public static void Reload()
     {
-        dict = null;
-        Load();
+        Load(true);
         Debug.Log("[HeartDB] Reloaded");
     }
 

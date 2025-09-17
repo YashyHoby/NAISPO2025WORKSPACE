@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 // 1/2/3/4 キーで A/B/C/D を発射。DBモード時は UID→DB 参照、
 // 通常モード時はプリセット値をペイロード送信。
@@ -69,22 +69,37 @@ public class DebugSpawner : MonoBehaviour
 
     void FireKey(int sw, HeartProfile preset, string uid)
     {
+        HeartProfile profile = preset;
+
         if (useHeartDB && !string.IsNullOrEmpty(uid))
         {
-            // UIDのみ送る（数値0）→ Gateway 側の preferDbIfUid=true で DB を使用
-            var msg = new HeartGateway.HeartInput { uid = uid, switchNo = sw, hr=0, cv=0, range=0, mean=0 };
-            gateway.Inject(msg);
+            HeartDB.Load(true);
+            profile = HeartDB.Get(uid);
         }
-        else
+
+        if (profile == null)
         {
-            // 旧動作（ペイロードの数値をそのまま使用）
-            var msg = new HeartGateway.HeartInput
-            {
-                uid = preset.uid, switchNo = sw,
-                hr = preset.hr, cv = preset.cv, range = preset.range, mean = preset.mean
-            };
-            gateway.Inject(msg);
+            Debug.LogWarning("[DebugSpawner] Profile not found for key " + sw + " (uid: " + uid + ")");
+            return;
         }
+
+        string resolvedUid = !string.IsNullOrEmpty(profile.uid) ? profile.uid : uid;
+        if (string.IsNullOrEmpty(resolvedUid))
+        {
+            resolvedUid = $"DBG_{sw}";
+        }
+
+        var msg = new HeartGateway.HeartInput
+        {
+            uid      = resolvedUid,
+            switchNo = sw,
+            hr       = profile.hr,
+            cv       = profile.cv,
+            range    = profile.range,
+            mean     = profile.mean
+        };
+
+        gateway.Inject(msg);
     }
 
     void SendRandom()

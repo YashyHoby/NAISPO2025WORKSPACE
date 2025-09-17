@@ -34,8 +34,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 4.03, y: 4.03, z: 4.03}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -257,14 +257,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4a2235abf2dc7543a1b1de616217bc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shapeType: 0
-  color: {r: 1, g: 1, b: 1, a: 1}
-  radius: 0.6
+  shapeType: 1
+  color: {r: 0.35300452, g: 0.88294667, b: 0.044147342, a: 1}
+  radius: 0.15
   profile:
     uid: 
     hr: 0
     cv: 0
     range: 0
     mean: 0
-  agent: {fileID: 0}
+  agent: {fileID: 4506072710588451775}
   baseMaterial: {fileID: 0}

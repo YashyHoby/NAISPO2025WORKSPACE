@@ -69,29 +69,37 @@ public class HeartGateway : MonoBehaviour
         var pad = emitters[idx];
         if (pad == null) { Debug.LogWarning($"[HeartGateway] Emitter for switch {m.switchNo} missing."); return; }
 
-        // --- プロファイル決定 ---
+        // --- プロファイル決定 ------------------------------------
         HeartProfile hp = null;
+        bool hasMsgValues = !(Mathf.Approximately(m.hr, 0f) && Mathf.Approximately(m.cv, 0f)
+                              && Mathf.Approximately(m.range, 0f) && Mathf.Approximately(m.mean, 0f));
 
-        if (preferDbIfUid && !string.IsNullOrEmpty(m.uid))
+        if (preferDbIfUid && !string.IsNullOrEmpty(m.uid) && !hasMsgValues)
+        {
+            hp = HeartDB.Get(m.uid);
+        }
+        else if (hasMsgValues)
+        {
+            string resolvedUid = !string.IsNullOrEmpty(m.uid)
+                ? m.uid
+                : $"UDP_{Guid.NewGuid():N}".Substring(0, 8);
+
+            hp = new HeartProfile
+            {
+                uid   = resolvedUid,
+                hr    = m.hr,
+                cv    = m.cv,
+                range = m.range,
+                mean  = m.mean
+            };
+        }
+        else if (!string.IsNullOrEmpty(m.uid))
         {
             hp = HeartDB.Get(m.uid);
         }
         else
         {
-            bool hasMsgValues = !(m.hr == 0f && m.cv == 0f && m.range == 0f && m.mean == 0f);
-            if (hasMsgValues)
-            {
-                hp = new HeartProfile { uid = string.IsNullOrEmpty(m.uid) ? $"UDP_{Guid.NewGuid():N}".Substring(0, 8) : m.uid,
-                                        hr = m.hr, cv = m.cv, range = m.range, mean = m.mean };
-            }
-            else if (!string.IsNullOrEmpty(m.uid))
-            {
-                hp = HeartDB.Get(m.uid);
-            }
-            else
-            {
-                hp = HeartDB.Get(null);
-            }
+            hp = HeartDB.Get(null);
         }
 
         // 射出位置・向き・初速

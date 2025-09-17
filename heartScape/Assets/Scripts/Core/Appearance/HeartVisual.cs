@@ -8,39 +8,69 @@ public class HeartVisual : MonoBehaviour
     [Header("Visual")]
     public ShapeType shapeType = ShapeType.Circle;
     public Color     color     = Color.white;
-    [Tooltip("Œ©‚½–ÚE“–‚½‚è”»’è‚ÌŠî€”¼ŒaBHeartGrowth‚©‚çXV‚³‚ê‚Ü‚·B")]
+    [Tooltip("ï¿½ï¿½ï¿½ï¿½ï¿½ÚEï¿½ï¿½ï¿½ï¿½ï¿½è”»ï¿½ï¿½ÌŠî€ï¿½ï¿½ï¿½aï¿½BHeartGrowthï¿½ï¿½ï¿½ï¿½Xï¿½Vï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½B")]
     public float     radius    = 0.6f;
 
     [Header("Refs (optional)")]
-    [Tooltip("S”‚È‚Ç‚Ìƒpƒ‰ƒ[ƒ^‚ğ‚Âƒvƒƒtƒ@ƒCƒ‹B–¢İ’è‚È‚ç70bpm ‚ğg—p")]
+    [Tooltip("ï¿½Sï¿½ï¿½ï¿½È‚Ç‚Ìƒpï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Âƒvï¿½ï¿½ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Bï¿½ï¿½ï¿½İ’ï¿½È‚ï¿½70bpm ï¿½ï¿½ï¿½gï¿½p")]
     public HeartProfile profile;
-    [Tooltip("“¯‚¶ GameObject ‚É‚ ‚éê‡‚ÉQÆ‚µ‚Ü‚·B”CˆÓI")]
+    [Tooltip("ï¿½ï¿½ï¿½ï¿½ GameObject ï¿½É‚ï¿½ï¿½ï¿½ê‡ï¿½ÉQï¿½Æ‚ï¿½ï¿½Ü‚ï¿½ï¿½Bï¿½Cï¿½ÓI")]
     public HeartAgent agent;
 
     [Header("Material")]
-    [Tooltip("ƒx[ƒX‚É‚·‚éƒ}ƒeƒŠƒAƒ‹BƒCƒ“ƒXƒ^ƒ“ƒX‰»‚µ‚Äg—p‚µ‚Ü‚·")]
+    [Tooltip("ï¿½xï¿½[ï¿½Xï¿½É‚ï¿½ï¿½ï¿½}ï¿½eï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½Bï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½Ägï¿½pï¿½ï¿½ï¿½Ü‚ï¿½")]
     public Material baseMaterial;
 
     Material        mat;
     Renderer        rend;
     CircleCollider2D circleCollider;
-    Vector3          baseScale;
-    float            referenceRadiusForScale = 1f;
-    bool             scaleBaselineInitialized;
 
-    void OnEnable()
-    {
-        ApplyRadiusToScale();
-    }
+    Vector3 initialScale;
+    float   initialColliderRadius;
+    float   initialWorldRadius;
+    bool    initialized;
 
     void Awake()
     {
+        Initialize();
+    }
+
+    void OnEnable()
+    {
+        Initialize();
+        ApplyRadiusScale(radius);
+    }
+
+    void Initialize()
+    {
+        if (initialized) return;
+
         if (agent == null) agent = GetComponent<HeartAgent>();
         rend           = GetComponent<Renderer>();
         circleCollider = GetComponent<CircleCollider2D>();
 
-        CacheScaleBaseline();
-        ApplyRadiusToScale();
+        initialScale = transform.localScale;
+
+        const float minRadius = 0.0001f;
+        float colliderLocalRadius = minRadius;
+        if (circleCollider != null && circleCollider.radius > minRadius)
+        {
+            colliderLocalRadius = circleCollider.radius;
+        }
+        else
+        {
+            colliderLocalRadius = Mathf.Max(radius, minRadius);
+        }
+
+        initialColliderRadius = colliderLocalRadius;
+
+        float baseScale = Mathf.Max(initialScale.x, minRadius);
+        float worldRadius = colliderLocalRadius * baseScale;
+        if (worldRadius <= minRadius)
+        {
+            worldRadius = Mathf.Max(radius, 0.1f);
+        }
+        initialWorldRadius = worldRadius;
 
         var src = baseMaterial != null ? baseMaterial : (rend != null ? rend.sharedMaterial : null);
         if (src != null)
@@ -52,54 +82,17 @@ public class HeartVisual : MonoBehaviour
         {
             Debug.LogWarning("[HeartVisual] Source material not found.", this);
         }
-    }
 
-    void CacheScaleBaseline()
-    {
-        if (scaleBaselineInitialized) return;
-
-        if (circleCollider == null) circleCollider = GetComponent<CircleCollider2D>();
-
-        baseScale = transform.localScale;
-
-        const float minRadius = 0.0001f;
-        if (circleCollider != null && circleCollider.radius > minRadius)
-        {
-            referenceRadiusForScale = circleCollider.radius;
-        }
-        else
-        {
-            referenceRadiusForScale = Mathf.Max(radius, minRadius);
-        }
-
-        scaleBaselineInitialized = true;
-    }
-
-    void ApplyRadiusToScale()
-    {
-        CacheScaleBaseline();
-
-        float baseRadius   = Mathf.Max(referenceRadiusForScale, 0.0001f);
-        float targetRadius = Mathf.Max(0f, radius);
-        float scaleFactor  = targetRadius / baseRadius;
-
-        transform.localScale = baseScale * scaleFactor;
-
-        if (circleCollider != null)
-        {
-            circleCollider.radius = baseRadius;
-        }
+        initialized = true;
     }
 
     void Update()
     {
-        // –¬“®¨hr¨ü”g”¨sin ƒpƒ‹ƒX
         float bpm    = (profile != null) ? profile.hr : 70f;
         float bpm01  = Mathf.InverseLerp(50f, 120f, bpm);
         float beatHz = Mathf.Lerp(1.0f, 2.4f, bpm01);
         float pulse  = (Mathf.Sin(Time.time * beatHz * Mathf.PI * 2f) + 1f) * 0.5f;
 
-        // ƒVƒF[ƒ_‚Ö
         if (mat != null)
         {
             mat.SetFloat("_Pulse",     pulse);
@@ -121,11 +114,34 @@ public class HeartVisual : MonoBehaviour
         }
     }
 
-    /// <summary>ŠO•”iGrowth‚È‚Çj‚©‚ç”¼ŒaXV</summary>
+    /// <summary>ï¿½Oï¿½ï¿½ï¿½iGrowthï¿½È‚Çjï¿½ï¿½ï¿½ç”¼ï¿½aï¿½Xï¿½V</summary>
     public void SetRadius(float r)
     {
-        radius = Mathf.Max(0f, r);
-        ApplyRadiusToScale();
+        ApplyRadiusScale(Mathf.Max(0f, r));
+    }
+
+    void ApplyRadiusScale(float targetRadius)
+    {
+        Initialize();
+
+        radius = targetRadius;
+
+        const float minRadius = 0.0001f;
+        float worldRadius = Mathf.Max(targetRadius, minRadius);
+        float baseWorld = Mathf.Max(initialWorldRadius, minRadius);
+        float scaleFactor = worldRadius / baseWorld;
+
+        if (!float.IsFinite(scaleFactor))
+        {
+            scaleFactor = 1f;
+        }
+
+        transform.localScale = initialScale * scaleFactor;
+
+        if (circleCollider != null)
+        {
+            circleCollider.radius = initialColliderRadius;
+        }
     }
 
     public Material MaterialInstance => mat;

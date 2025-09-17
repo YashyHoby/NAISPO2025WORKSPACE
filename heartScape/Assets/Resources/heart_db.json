@@ -1,8 +1,8 @@
 {
   "items": [
-    { "uid": "DBG_01", "hr": 72,  "cv": 0.18, "range": 16, "mean": 78 },
+    { "uid": "DBG_01", "hr": 89,  "cv": 0.18, "range": 16, "mean": 78 },
     { "uid": "DBG_02", "hr": 95,  "cv": 0.32, "range": 28, "mean": 88 },
     { "uid": "DBG_03", "hr": 60,  "cv": 0.10, "range": 12, "mean": 70 },
-    { "uid": "DBG_03", "hr": 60,  "cv": 0.10, "range": 12, "mean": 70 }
+    { "uid": "DBG_04", "hr": 89,  "cv": 0.10, "range": 12, "mean": 70 }
   ]
 }
