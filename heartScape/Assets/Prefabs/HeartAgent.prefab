@@ -34,7 +34,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 4.03, y: 4.03, z: 4.03}
+  m_LocalScale: {x: 0.87, y: 0.87, z: 0.87}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
@@ -245,6 +245,10 @@ MonoBehaviour:
   pulseDirVelBias: 0.6
   pulseAsImpulse: 0
   pulseBpmRange: {x: 50, y: 120}
+  pulseVisualMinScale: 0.85
+  pulseVisualMaxScale: 1.05
+  pulseVisualReturnSpeed: 4
+  pulseVisualSmoothSpeed: 8
 --- !u!114 &-1767959107442199089
 MonoBehaviour:
   m_ObjectHideFlags: 0

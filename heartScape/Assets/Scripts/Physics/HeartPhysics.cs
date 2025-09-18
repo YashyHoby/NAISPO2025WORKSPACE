@@ -301,6 +301,7 @@ public class HeartPhysics : MonoBehaviour
         Vector2 velocity = rb.linearVelocity;
         Vector2 bestNormal = Vector2.zero;
         float strongestDot = 0f;
+        bool skipBounce = false;
 
         int contactCount = collision.contactCount;
         for (int i = 0; i < contactCount; i++)
@@ -324,7 +325,7 @@ public class HeartPhysics : MonoBehaviour
                     float alignment = Vector2.Dot(rel.normalized, velocity.normalized);
                     if (alignment > 0.7f && Vector2.Dot(rel, velocity) > 0f)
                     {
-                        return;
+                        skipBounce = true;
                     }
                 }
 
@@ -337,7 +338,7 @@ public class HeartPhysics : MonoBehaviour
 
         float impactSpeed = -strongestDot;
 
-        if (collisionBounceEnabled && impactSpeed >= collisionImpactThreshold)
+        if (!skipBounce && collisionBounceEnabled && impactSpeed >= collisionImpactThreshold)
         {
             Vector2 newVel = velocity - (1f + collisionRestitution) * strongestDot * bestNormal;
             rb.linearVelocity = newVel;
