@@ -85,6 +85,12 @@ public class HeartPhysics : MonoBehaviour
     [Tooltip("拍動の BPM をこの範囲に収めます。")]
     public Vector2 pulseBpmRange = new Vector2(50f, 120f);
 
+    [Header("Pulse Visual")]
+    [Range(0.5f, 1.2f)] public float pulseVisualMinScale = 0.85f;
+    [Range(0.8f, 1.5f)] public float pulseVisualMaxScale = 1f;
+    [Tooltip("見た目の収縮バランスが元に戻る速さです。")] public float pulseVisualReturnSpeed = 4f;
+    [Tooltip("収縮スケールの補間速度です。大きいほど素早く追従します。")] public float pulseVisualSmoothSpeed = 8f;
+
     Rigidbody2D rb;
     float seed;
 
@@ -94,6 +100,12 @@ public class HeartPhysics : MonoBehaviour
     Vector3[]   workingVertices;
     Coroutine   collisionVisualRoutine;
     Vector2     lastBounceAxis = Vector2.right;
+
+    HeartVisual visual;
+    float       pulseVisualValue;
+    float       pulseVisualScale = 1f;
+    float       pulseVisualTargetScale = 1f;
+    float       currentSquashAmount = 0f;
 
     // Pulse 内部状態
     float pulsePhase;   // 0..1 周回
@@ -106,13 +118,10 @@ public class HeartPhysics : MonoBehaviour
 
         SetupVisualMesh();
 
-        // 可能なら HeartVisual から profile を拝借
-        if (profile == null)
+        visual = GetComponent<HeartVisual>();
+        if (profile == null && visual != null)
         {
-            var hv = GetComponent<HeartVisual>();
-            if (hv != null && hv != null && hv.GetType() != null) // NRE保険
-                profile = hv.GetType().GetField("profile") != null ? hv.profile : hv.GetComponent<HeartVisual>()?.profile;
-            // ↑ 通常は hv.profile で十分。リフレクション保険は消してもOK
+            profile = visual.profile;
         }
 
         // 物理重力は0（実効重力をスクリプトで与える）
@@ -158,7 +167,7 @@ public class HeartPhysics : MonoBehaviour
         Vector2 v   = rb.linearVelocity;  // 旧版Unityなら rb.velocity
         Vector2 u   = flow.SampleVelocity(pos);
 
-        // --- 拍動推進（クラゲ） ---
+        // --- 拍動推進
         if (pulseSwimEnabled)
         {
             float bpm = (profile != null) ? profile.hr : defaultBpm;
@@ -178,14 +187,53 @@ public class HeartPhysics : MonoBehaviour
                     Vector2 dir = ComputePulseDir(v, u);
                     rb.AddForce(dir * pulseForce * rb.mass, ForceMode2D.Impulse);
                 }
+
+                pulseVisualValue = 1f;
             }
+
             if (!pulseAsImpulse && pulseTimer > 0f)
             {
                 Vector2 dir = ComputePulseDir(v, u);
                 rb.AddForce(dir * pulseForce, ForceMode2D.Force);
                 pulseTimer -= Time.fixedDeltaTime;
+
+                float strength = Mathf.Sin(Mathf.Clamp01(pulsePhase) * Mathf.PI);
+                pulseVisualValue = Mathf.Max(pulseVisualValue, strength);
             }
         }
+        else
+        {
+            pulseTimer = 0f;
+            pulsePhase = 0f;
+        }
+
+        pulseVisualValue = Mathf.Clamp01(pulseVisualValue);
+        float visualReturn = Mathf.Max(0f, pulseVisualReturnSpeed);
+        if (visualReturn > 0f)
+        {
+            pulseVisualValue = Mathf.MoveTowards(pulseVisualValue, 0f, visualReturn * Time.fixedDeltaTime);
+        }
+        else
+        {
+            pulseVisualValue = 0f;
+        }
+
+        float minScale = Mathf.Clamp(pulseVisualMinScale, 0.1f, pulseVisualMaxScale);
+        float maxScale = Mathf.Max(minScale, pulseVisualMaxScale);
+        float smooth = Mathf.Max(0f, pulseVisualSmoothSpeed);
+
+        pulseVisualTargetScale = Mathf.Lerp(maxScale, minScale, pulseVisualValue);
+
+        if (smooth > 0f)
+        {
+            pulseVisualScale = Mathf.MoveTowards(pulseVisualScale, pulseVisualTargetScale, smooth * Time.fixedDeltaTime);
+        }
+        else
+        {
+            pulseVisualScale = pulseVisualTargetScale;
+        }
+
+        ApplyVisualSquash(lastBounceAxis, currentSquashAmount);
 
         // --- 流れに“押される”力（B案） ---
         Vector2 F_align = u * alignK;
@@ -299,6 +347,11 @@ public class HeartPhysics : MonoBehaviour
         if (EnsureVisualMeshData(true))
         {
             lastBounceAxis = Vector2.right;
+            currentSquashAmount = 0f;
+            pulseVisualValue = 0f;
+            pulseVisualTargetScale = 1f;
+            pulseVisualScale = 1f;
+            ApplyVisualSquash(lastBounceAxis, currentSquashAmount);
         }
     }
 
@@ -374,6 +427,12 @@ public class HeartPhysics : MonoBehaviour
             for (int i = 0; i < workingVertices.Length; i++)
                 workingVertices[i] = baseVertices[i];
         }
+
+        lastBounceAxis = Vector2.right;
+        currentSquashAmount = 0f;
+        pulseVisualValue = 0f;
+        pulseVisualTargetScale = 1f;
+        pulseVisualScale = 1f;
     }
 
     void TriggerVisualBounce(Vector2 axis, float impactSpeed)
@@ -426,6 +485,9 @@ public class HeartPhysics : MonoBehaviour
         float clamped = Mathf.Clamp(amount, -collisionVisualMaxSquash, collisionVisualMaxSquash);
         float alongScale = Mathf.Clamp(1f - clamped, 0.25f, 2.5f);
         float perpScale  = Mathf.Clamp(1f + clamped, 0.25f, 2.5f);
+        currentSquashAmount = clamped;
+
+        float pulseScale = Mathf.Max(0.0001f, pulseVisualScale);
 
         for (int i = 0; i < baseVertices.Length; i++)
         {
@@ -434,6 +496,7 @@ public class HeartPhysics : MonoBehaviour
             float along = Vector2.Dot(plane, norm);
             float side = Vector2.Dot(plane, perp);
             Vector2 scaled = norm * (along * alongScale) + perp * (side * perpScale);
+            scaled *= pulseScale;
             workingVertices[i] = new Vector3(scaled.x, scaled.y, baseV.z);
         }
 
