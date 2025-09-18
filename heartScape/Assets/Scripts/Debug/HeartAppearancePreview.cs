@@ -59,6 +59,7 @@ public class HeartAppearancePreview : MonoBehaviour
     {
         RestoreOriginalProfile();
 #if UNITY_EDITOR
+        EditorApplication.delayCall -= ApplyPreviewDelayed;
         SubscribeEditorUpdate(false);
 #endif
     }
@@ -67,10 +68,17 @@ public class HeartAppearancePreview : MonoBehaviour
     {
         EnsureProfileInstance();
         if (Application.isPlaying) return;
+#if UNITY_EDITOR
+        if (autoApply)
+        {
+            SchedulePreviewApply();
+        }
+#else
         if (autoApply)
         {
             ApplyPreview();
         }
+#endif
     }
 
     void EnsureProfileInstance()
@@ -136,6 +144,22 @@ public class HeartAppearancePreview : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+    void SchedulePreviewApply()
+    {
+        EditorApplication.delayCall -= ApplyPreviewDelayed;
+        EditorApplication.delayCall += ApplyPreviewDelayed;
+    }
+
+    void ApplyPreviewDelayed()
+    {
+        if (this == null) return;
+        if (Application.isPlaying || !autoApply) return;
+
+        EnsureProfileInstance();
+        AutoAssign();
+        ApplyPreview();
+    }
+
     void SubscribeEditorUpdate(bool subscribe)
     {
         if (subscribe)

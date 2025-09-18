@@ -267,4 +267,4 @@ MonoBehaviour:
     range: 0
     mean: 0
   agent: {fileID: 4506072710588451775}
-  baseMaterial: {fileID: 0}
+  baseMaterial: {fileID: 2100000, guid: 7cd2626126b0f494480c666d721a79d7, type: 2}

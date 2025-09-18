@@ -296,29 +296,75 @@ public class HeartPhysics : MonoBehaviour
 
     void SetupVisualMesh()
     {
-        meshFilter = GetComponent<MeshFilter>();
-        if (meshFilter == null) return;
-
-        visualMesh = meshFilter.mesh;
-        if (visualMesh == null) return;
-
-        visualMesh.MarkDynamic();
-
-        var verts = visualMesh.vertices;
-        baseVertices = new Vector3[verts.Length];
-        workingVertices = new Vector3[verts.Length];
-        for (int i = 0; i < verts.Length; i++)
+        if (EnsureVisualMeshData(true))
         {
-            baseVertices[i] = verts[i];
-            workingVertices[i] = verts[i];
+            lastBounceAxis = Vector2.right;
+        }
+    }
+
+    bool EnsureVisualMeshData(bool forceRefresh = false)
+    {
+        if (meshFilter == null)
+            meshFilter = GetComponent<MeshFilter>();
+
+        if (meshFilter == null)
+        {
+            visualMesh = null;
+            baseVertices = null;
+            workingVertices = null;
+            return false;
         }
 
-        lastBounceAxis = Vector2.right;
+        Mesh currentMesh = meshFilter.sharedMesh;
+        if (currentMesh == null)
+            currentMesh = meshFilter.mesh;
+
+        if (currentMesh == null)
+        {
+            visualMesh = null;
+            baseVertices = null;
+            workingVertices = null;
+            return false;
+        }
+
+        bool meshChanged = visualMesh != currentMesh;
+        if (meshChanged)
+        {
+            visualMesh = currentMesh;
+            visualMesh.MarkDynamic();
+        }
+
+        int vertexCount = visualMesh.vertexCount;
+        if (vertexCount <= 0)
+        {
+            baseVertices = null;
+            workingVertices = null;
+            return false;
+        }
+
+        if (forceRefresh || meshChanged || baseVertices == null || baseVertices.Length != vertexCount)
+        {
+            var verts = visualMesh.vertices;
+            if (verts == null || verts.Length != vertexCount)
+            {
+                return false;
+            }
+
+            baseVertices = new Vector3[vertexCount];
+            workingVertices = new Vector3[vertexCount];
+            for (int i = 0; i < vertexCount; i++)
+            {
+                baseVertices[i] = verts[i];
+                workingVertices[i] = verts[i];
+            }
+        }
+
+        return true;
     }
 
     void ResetVisualDeform()
     {
-        if (visualMesh == null || baseVertices == null) return;
+        if (!EnsureVisualMeshData()) return;
 
         visualMesh.vertices = baseVertices;
         visualMesh.RecalculateBounds();
@@ -332,7 +378,8 @@ public class HeartPhysics : MonoBehaviour
 
     void TriggerVisualBounce(Vector2 axis, float impactSpeed)
     {
-        if (!collisionVisualEnabled || collisionVisualMaxSquash <= 0f || visualMesh == null || baseVertices == null) return;
+        if (!collisionVisualEnabled || collisionVisualMaxSquash <= 0f) return;
+        if (!EnsureVisualMeshData()) return;
         if (impactSpeed <= 1e-4f) return;
 
         float normalised = (collisionImpactForMaxVisual > 0f) ? Mathf.Clamp01(impactSpeed / collisionImpactForMaxVisual) : 1f;
@@ -371,7 +418,7 @@ public class HeartPhysics : MonoBehaviour
 
     void ApplyVisualSquash(Vector2 axis, float amount)
     {
-        if (visualMesh == null || baseVertices == null || workingVertices == null) return;
+        if (!EnsureVisualMeshData()) return;
 
         Vector2 norm = axis.sqrMagnitude > 1e-6f ? axis.normalized : Vector2.right;
         Vector2 perp = new Vector2(-norm.y, norm.x);
