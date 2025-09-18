@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -23,11 +24,15 @@ public class HeartVisual : MonoBehaviour
     MeshFilter      meshFilter;
     Mesh            meshInstance;
     CircleCollider2D circleCollider;
+    PolygonCollider2D polygonCollider;
 
     Vector3 initialScale;
     float   initialColliderRadius;
     float   initialWorldRadius;
     bool    initialized;
+
+    Vector2[] polygonColliderPath = Array.Empty<Vector2>();
+    Vector2[] circleColliderPath = Array.Empty<Vector2>();
 
     readonly List<Vector2> vertexScratch = new List<Vector2>(16);
 
@@ -74,6 +79,27 @@ public class HeartVisual : MonoBehaviour
         rend           = GetComponent<Renderer>();
         meshFilter     = GetComponent<MeshFilter>();
         circleCollider = GetComponent<CircleCollider2D>();
+        polygonCollider = GetComponent<PolygonCollider2D>();
+
+        if (polygonCollider == null)
+        {
+            polygonCollider = gameObject.AddComponent<PolygonCollider2D>();
+        }
+
+        if (polygonCollider != null)
+        {
+            polygonCollider.isTrigger = circleCollider != null && circleCollider.isTrigger;
+            polygonCollider.pathCount = 0;
+        }
+
+        if (circleCollider != null && polygonCollider != null)
+        {
+            circleCollider.enabled = false;
+        }
+
+        polygonColliderPath = Array.Empty<Vector2>();
+        circleColliderPath = Array.Empty<Vector2>();
+
 
         initialScale = transform.localScale;
 
@@ -267,6 +293,8 @@ public class HeartVisual : MonoBehaviour
         meshInstance.triangles = tris;
         meshInstance.RecalculateBounds();
         meshInstance.RecalculateNormals();
+
+        UpdatePolygonColliderCircle(vertices);
     }
 
     void BuildPolygonMesh(int vertexCount, ProceduralShapeParameters p)
@@ -305,6 +333,63 @@ public class HeartVisual : MonoBehaviour
         meshInstance.triangles = tris;
         meshInstance.RecalculateBounds();
         meshInstance.RecalculateNormals();
+
+        UpdatePolygonCollider(vertexScratch);
+    }
+
+    void UpdatePolygonColliderCircle(Vector3[] vertices)
+    {
+        if (polygonCollider == null) return;
+
+        int count = Mathf.Max(0, vertices.Length - 1);
+        if (count < 3)
+        {
+            polygonCollider.enabled = false;
+            polygonCollider.pathCount = 0;
+            return;
+        }
+
+        if (circleColliderPath == null || circleColliderPath.Length != count)
+        {
+            circleColliderPath = new Vector2[count];
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 v = vertices[i + 1];
+            circleColliderPath[i] = new Vector2(v.x, v.y);
+        }
+
+        polygonCollider.enabled = true;
+        polygonCollider.pathCount = 1;
+        polygonCollider.SetPath(0, circleColliderPath);
+    }
+
+    void UpdatePolygonCollider(List<Vector2> points)
+    {
+        if (polygonCollider == null) return;
+
+        int count = points.Count;
+        if (count < 3)
+        {
+            polygonCollider.enabled = false;
+            polygonCollider.pathCount = 0;
+            return;
+        }
+
+        if (polygonColliderPath == null || polygonColliderPath.Length != count)
+        {
+            polygonColliderPath = new Vector2[count];
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            polygonColliderPath[i] = points[i];
+        }
+
+        polygonCollider.enabled = true;
+        polygonCollider.pathCount = 1;
+        polygonCollider.SetPath(0, polygonColliderPath);
     }
 
     void GeneratePolygonVertices(int vertexCount, ProceduralShapeParameters p)
