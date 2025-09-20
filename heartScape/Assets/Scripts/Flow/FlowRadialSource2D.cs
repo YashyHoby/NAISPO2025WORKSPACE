@@ -1,20 +1,20 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 [ExecuteAlways]
 public class FlowRadialSource2D : MonoBehaviour, IFlowSource2D
 {
-    [Header("Profile")] 
-    [Tooltip("Maximum outward strength applied from the centre.")]
+    [Header("プロファイル設定")]
+    [Tooltip("中心から外向きに押し出す力の最大値です。")]
     public float strength = 5f;
 
-    [Tooltip("Radius of the area influenced by the flow (world units).")]
+    [Tooltip("フローの影響が及ぶ半径（ワールド単位）です。")]
     public float radius = 8f;
 
-    [Tooltip("Strength profile sampled with distance (0 = centre, 1 = radius).")]
+    [Tooltip("距離に応じて強度を変化させるプロファイル（0=中心、1=半径端）です。")]
     public AnimationCurve radialProfile = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
-    [Header("Falloff")] 
-    [Tooltip("Soft falloff width beyond the radius (0 disables the falloff).")]
+    [Header("フォールオフ設定")]
+    [Tooltip("半径外側で緩やかに減衰させる幅です。0 にすると減衰しません。")]
     public float edgeFalloff = 0.5f;
 
     public Vector2 SampleVelocity(Vector2 worldPos)

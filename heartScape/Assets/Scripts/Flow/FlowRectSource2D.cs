@@ -3,18 +3,18 @@ using UnityEngine;
 [ExecuteAlways]
 public class FlowRectSource2D : MonoBehaviour, IFlowSource2D
 {
-    [Header("Shape / Strength")]
+    [Header("形状・強さ")]
     public float length = 5f;           // 流れ方向(+X)の長さ
     public float width  = 2f;           // 幅（±Y/2）
     public float strength = 4f;         // 基本流速の大きさ
 
-    [Header("Profiles (0..1)")]
-    [Tooltip("長手方向プロファイル t=x/L: 0=根元,1=出口")]
+    [Header("プロファイル（0～1）")]
+    [Tooltip("長手方向のプロファイル t = x / L （0 = 入口、1 = 出口）です。")]
     public AnimationCurve lengthProfile = AnimationCurve.Linear(0, 1, 1, 0.5f);
-    [Tooltip("幅方向プロファイル s=|2y/W|: 0=中央,1=端")]
+    [Tooltip("幅方向のプロファイル s = |2y / W| （0 = 中央、1 = 端）です。") ]
     public AnimationCurve widthProfile  = AnimationCurve.Linear(0, 1, 1, 0.6f);
 
-    [Header("Inflow (optional)")]
+    [Header("吸い込み（任意）")]
     public bool   inflowEnabled   = true;
     public float  inflowRadius    = 1.0f;
     public float  inflowStrength  = 2.0f;

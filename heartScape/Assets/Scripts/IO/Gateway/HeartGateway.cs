@@ -7,23 +7,23 @@ using System.Threading;
 
 public class HeartGateway : MonoBehaviour
 {
-    [Header("Refs")]
+    [Header("参照")]
     public HeartManager manager;
 
-    [Header("Emitters (A,B,C,D)")]
-    [Tooltip("スイッチ A/B/C/D に対応する4点。Transform.right が射出方向。")]
+    [Header("エミッタ（A/B/C/D）")]
+    [Tooltip("スイッチ A/B/C/D に対応する発射位置。Transform.right が射出方向になります。")]
     public Transform[] emitters = new Transform[4];
 
-    [Header("Launch Params")]
+    [Header("射出パラメータ")]
     public float baseSpeed = 3f;
     public float speedJitter = 0.5f;
     public float spreadDeg = 5f;
 
-    [Header("Data Source")]
-    [Tooltip("UID があれば DB を優先する")]
+    [Header("データソース")]
+    [Tooltip("UID が指定されている場合は DB のプロファイルを優先して使います。")]
     public bool preferDbIfUid = true;
 
-    [Header("UDP (optional)")]
+    [Header("UDP（任意）")]
     public bool useUdp = false;
     public int listenPort = 33333;
 

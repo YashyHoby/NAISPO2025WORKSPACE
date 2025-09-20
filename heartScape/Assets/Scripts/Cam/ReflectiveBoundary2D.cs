@@ -5,13 +5,13 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class ReflectiveBoundary2D : MonoBehaviour
 {
-    [Tooltip("壁の厚み（ワールド単位）")]
+    [Tooltip("壁コライダーの厚み（ワールド単位）です。")]
     public float thickness = 1f;
 
-    [Tooltip("跳ね返り用マテリアル（Bounciness=1, Friction=0 推奨）")]
+    [Tooltip("跳ね返りに使用する PhysicsMaterial。Bounciness=1、Friction=0 を推奨します。")]
     public PhysicsMaterial2D bounceMaterial;
 
-    [Tooltip("Gizmosの枠色")]
+    [Tooltip("Gizmos で描画する枠線の色です。")]
     public Color gizmoColor = new(1,1,1,0.35f);
 
     BoxCollider2D top, bottom, left, right;

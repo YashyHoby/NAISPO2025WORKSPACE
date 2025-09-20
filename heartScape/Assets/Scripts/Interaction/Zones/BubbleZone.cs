@@ -3,13 +3,13 @@ using System.Collections.Generic;
 
 public class BubbleZone : EventZone
 {
-    [Tooltip("捕獲数がこの値に達すると破裂演出")]
+    [Tooltip("捕獲数がこの値に達すると破裂演出を行います。")]
     public int threshold = 10;
 
-    [Tooltip("中心へ引き寄せる強さ（Force）")]
+    [Tooltip("中心へ引き寄せる力の強さ（Force）です。")]
     public float pullStrength = 3.5f;
 
-    [Tooltip("内部ダンピング（追加減速の強さ）")]
+    [Tooltip("引き寄せ中に加える追加減速の強さです。")]
     public float damping = 6.0f;
 
     // 吸い込み時に少し減速させる係数（旧: a.vel *= 0.2f）

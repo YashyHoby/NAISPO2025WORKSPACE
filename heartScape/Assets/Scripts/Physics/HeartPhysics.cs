@@ -4,92 +4,92 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class HeartPhysics : MonoBehaviour
 {
-    [Tooltip("Flow manager reference; auto-locates from the scene when unset.")]
+    [Tooltip("FlowManager2D への参照。未設定ならシーン上から自動取得します。")]
     public FlowManager2D flow;
 
-    [Header("Refs (optional)")]
-    [Tooltip("Optional heart profile; fetched from HeartVisual when available.")]
+    [Header("参照（任意）")]
+    [Tooltip("任意の HeartProfile。HeartVisual に設定されていればそこから取得します。")]
     public HeartProfile profile;
-    [Tooltip("Fallback BPM used when no profile is assigned.")]
+    [Tooltip("プロファイルが無い場合に使う基準 BPM 値です。")]
     public float defaultBpm = 80f;
 
-    [Header("Flow Push (B-plan)")]
-    [Tooltip("Coefficient for pushing along the sampled flow velocity.")]
+    [Header("流れへの沿い力（B案）")]
+    [Tooltip("流れの速度ベクトルに沿って押し出す力の係数です。")]
     public float alignK = 6f;
 
-    [Header("Quadratic Drag (optional)")]
-    [Tooltip("Quadratic drag coefficient; set to 0 to disable.")]
+    [Header("二次抗力（任意）")]
+    [Tooltip("速度の二乗に比例する抗力係数です。0 にすると無効化します。")]
     public float quadDragK = 0.35f;
 
-    [Header("Effective Gravity")]
-    [Tooltip("Pseudo gravity strength applied on the Y axis (negative pulls downward).")]
+    [Header("実効重力")]
+    [Tooltip("Y 軸方向に働く擬似重力の強さです。負にすると下向きに作用します。")]
     public float effectiveGravity = -3f;
 
-    [Header("Noise (optional)")]
-    [Tooltip("Magnitude of random noise force; set to 0 to disable.")]
+    [Header("ノイズ（任意）")]
+    [Tooltip("ランダムノイズの力の大きさです。0 にすると無効化します。")]
     public float noiseForce   = 0.2f;
-    [Tooltip("Temporal frequency for updating the noise force.")]
+    [Tooltip("ノイズ力を更新する時間方向の速さです。値が大きいほど変化が速くなります。")]
     public float noiseFreq    = 0.25f;
-    [Tooltip("Spatial scale used when sampling the noise field.")]
+    [Tooltip("ノイズをサンプリングする際の空間スケールです。大きいほど滑らかに変化します。")]
     public float noiseSpatial = 1.7f;
 
-    [Header("Collision Bounce")]
-    [Tooltip("Enable scripted bounce response during collisions.")]
+    [Header("衝突反発")]
+    [Tooltip("衝突時にスクリプトの反発処理を有効にします。")]
     public bool  collisionBounceEnabled   = true;
-    [Tooltip("Restitution coefficient: 0 absorbs, 1 is elastic, >1 amplifies rebound.")]
+    [Tooltip("反発係数です。0 で吸収、1 で弾性、1 を超えると強く跳ね返ります。")]
     [Range(0f, 2f)] public float collisionRestitution = 0.8f;
-    [Tooltip("Minimum normal speed required to trigger bounce processing.")]
+    [Tooltip("反発処理を適用するための最小法線速度です。")]
     public float collisionImpactThreshold = 0.2f;
 
-    [Header("Collision Visual Bounce")]
-    [Tooltip("Enable squash-and-stretch animation on collision.")]
+    [Header("衝突ビジュアル反発")]
+    [Tooltip("衝突時にスクワッシュ＆ストレッチ演出を再生します。")]
     public bool  collisionVisualEnabled = true;
-    [Tooltip("Impact speed considered to produce the maximum squash deformation.")]
+    [Tooltip("最大の潰れ量になるとみなす衝突速度です。")]
     public float collisionImpactForMaxVisual = 4f;
-    [Tooltip("Maximum squash amount applied to the visual mesh; 0 disables deformation.")]
+    [Tooltip("ビジュアルに適用される最大潰れ量です。0 で変形を行いません。")]
     [Range(0f, 0.8f)] public float collisionVisualMaxSquash = 0.2f;
-    [Tooltip("Duration of the squash-and-stretch animation in seconds.")]
+    [Tooltip("スクワッシュ＆ストレッチ演出が収束するまでの時間（秒）です。")]
     public float collisionVisualDuration = 0.45f;
-    [Tooltip("Oscillation frequency for the squash-and-stretch animation.")]
+    [Tooltip("スクワッシュ＆ストレッチ演出の振動数です。")]
     public float collisionVisualFrequency = 6f;
-    [Tooltip("Damping factor for the squash-and-stretch animation; higher values settle faster.")]
+    [Tooltip("スクワッシュ＆ストレッチ演出の減衰係数です。大きいほど早く収束します。")]
     public float collisionVisualDamping = 4f;
 
-    [Header("Clamp")]
-    [Tooltip("Clamp the rigidbody speed to a maximum value.")]
+    [Header("速度上限")]
+    [Tooltip("リジッドボディの速度を最大値で制限します。")]
     public bool  clampSpeed = true;
-    [Tooltip("Maximum speed enforced when clamping is enabled.")]
+    [Tooltip("速度制限が有効なときの最大速度です。")]
     public float maxSpeed   = 10f;
 
-    [Header("Min Speed (keep alive)")]
-    [Tooltip("Prevent the heart from fully stopping by enforcing a minimum speed.")]
+    [Header("最低速度（停止防止）")]
+    [Tooltip("最低速度を維持して完全停止を防ぎます。")]
     public bool  enforceMinSpeed = true;
-    [Tooltip("Minimum speed to maintain; values below are boosted.")]
+    [Tooltip("維持したい最低速度です。この値を下回ると補正されます。")]
     public float minSpeed        = 0.5f;
-    [Tooltip("If true, snap velocity directly to the minimum when too slow; otherwise add force.")]
+    [Tooltip("オンの場合は速度が遅すぎると即座に最低速度まで引き上げます。オフの場合は力を加えて補います。")]
     public bool  setVelocityHard = true;
-    [Tooltip("Acceleration factor used when restoring minimum speed via forces.")]
+    [Tooltip("力で最低速度まで戻す際に使う加速度係数です。")]
     public float keepAliveAccel  = 8f;
 
-    [Header("Pulse Swim (jellyfish)")]
-    [Tooltip("Enable jellyfish-like pulse swimming behavior.")]
+    [Header("パルス推進（クラゲ風）")]
+    [Tooltip("クラゲのようなパルス推進を有効化します。")]
     public bool   pulseSwimEnabled = true;
-    [Tooltip("Propulsive force contributed by a single pulse.")]
+    [Tooltip("パルス 1 回で与える推進力です。")]
     public float  pulseForce = 12f;
-    [Tooltip("Duration that continuous-force mode applies pulse propulsion.")]
+    [Tooltip("連続力モードでパルス推進を適用し続ける時間（秒）です。")]
     public float  pulseDuration = 0.12f;
-    [Tooltip("Blend between flow direction and current velocity for pulse steering (0 = flow, 1 = velocity).")]
+    [Tooltip("パルスの進行方向を流れ方向と現在速度のどちらへ寄せるかの係数です（0=流れ、1=現在速度）。")]
     [Range(0f,1f)] public float pulseDirVelBias = 0.6f;
-    [Tooltip("Apply the pulse as an impulse. When false, the force is distributed over the duration.")]
+    [Tooltip("オンでインパルスとして瞬間的に適用します。オフの場合は duration の間に分散させます。")]
     public bool   pulseAsImpulse = false;
-    [Tooltip("Clamp pulse BPM into this range.")]
+    [Tooltip("パルスの BPM をこの範囲へ制限します。")]
     public Vector2 pulseBpmRange = new Vector2(50f, 120f);
 
-    [Header("Pulse Visual")]
+    [Header("パルス演出")]
     [Range(0.5f, 1.2f)] public float pulseVisualMinScale = 0.85f;
     [Range(0.8f, 1.5f)] public float pulseVisualMaxScale = 1f;
-    [Tooltip("Rate at which the visual squash returns to neutral.")] public float pulseVisualReturnSpeed = 4f;
-    [Tooltip("Speed for interpolating the visual squash amount.")] public float pulseVisualSmoothSpeed = 8f;
+    [Tooltip("見た目の潰れが元の形へ戻る速さです。")] public float pulseVisualReturnSpeed = 4f;
+    [Tooltip("見た目の潰れ量を補間するスピードです。")] public float pulseVisualSmoothSpeed = 8f;
 
     Rigidbody2D rb;
     float seed;
@@ -323,7 +323,7 @@ public class HeartPhysics : MonoBehaviour
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     float alignment = Vector2.Dot(rel.normalized, velocity.normalized);
-                    if (alignment > 0.7f && Vector2.Dot(rel, velocity) > 0f)
+                    if (alignment > 0.9f && Vector2.Dot(rel, velocity) > 0f)
                     {
                         skipBounce = true;
                     }

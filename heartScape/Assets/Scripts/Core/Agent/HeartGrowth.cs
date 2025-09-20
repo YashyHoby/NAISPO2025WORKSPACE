@@ -2,17 +2,17 @@ using UnityEngine;
 
 public class HeartGrowth : MonoBehaviour
 {
-    [Header("Growth (FOOD)")]
-    [Tooltip("成長段階ごとのスケール。5要素（0〜4段階）。5段階目の取得で分裂します。")]
+    [Header("成長（FOOD）")]
+    [Tooltip("成長段階ごとのスケール（要素数 5、0～4 段階）。5 段階目に達すると分裂します。") ]
     public float[] stageScales = new float[5] { 0.45f, 0.60f, 0.75f, 0.90f, 1.05f };
 
-    [Tooltip("基準半径（stageScalesの係数）")]
+    [Tooltip("基準となる半径です。stageScales と掛け合わせて実際の半径を決めます。") ]
     public float baseRadius = 0.6f;
 
-    [Tooltip("1段階成長に必要なFOOD量")]
+    [Tooltip("1 段階成長するために必要な FOOD 量です。") ]
     public float foodPerStage = 1.0f;
 
-    [Tooltip("FOOD取得量の全体倍率")]
+    [Tooltip("FOOD 取得量に掛ける全体倍率です。") ]
     public float foodGainMul = 1.0f;
 
     [HideInInspector] public int growthStage = 0;   // 0〜4（5段階目取得で分裂）

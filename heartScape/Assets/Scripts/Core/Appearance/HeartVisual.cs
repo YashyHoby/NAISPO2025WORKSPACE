@@ -7,16 +7,16 @@ public enum ShapeType { Circle, Triangle, Box }
 [RequireComponent(typeof(Renderer)), RequireComponent(typeof(MeshFilter))]
 public class HeartVisual : MonoBehaviour
 {
-    [Header("Visual")]
+    [Header("見た目設定")]
     public ShapeType shapeType = ShapeType.Circle;
     public Color     color     = Color.white;
     public float     radius    = 0.6f;
 
-    [Header("Refs (optional)")]
+    [Header("参照（任意）")]
     public HeartProfile profile;
     public HeartAgent   agent;
 
-    [Header("Material")]
+    [Header("マテリアル設定")]
     public Material baseMaterial;
 
     Material        mat;

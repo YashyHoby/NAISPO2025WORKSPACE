@@ -1,37 +1,47 @@
 using UnityEngine;
 
 /// <summary>
-/// HeartProfile の数値から HeartVisual の見た目（カラー・サイズ・形状）を算出するマッパー。
+/// HeartProfile の値から HeartVisual の見た目（カラー・サイズ・形状など）を算出するマッパー。
 /// </summary>
 public class HeartAppearanceMapper : MonoBehaviour
 {
-    [Header("Expected Ranges (tune to your dataset)")]
-    [Tooltip("HR (bpm) の想定最小/最大。統計レンジに合わせること")]
+    [Header("想定レンジ（データセットに合わせて調整）")]
+    [Tooltip("HR（bpm）の想定最小／最大値。統計レンジに合わせて設定します。")]
     public Vector2 hrRange   = new Vector2(50f, 120f);
-    [Tooltip("CV の想定最小/最大。統計レンジに合わせること")]
+    [Tooltip("CV の想定最小／最大値。統計レンジに合わせて設定します。")]
     public Vector2 cvRange   = new Vector2(0.05f, 0.50f);
-    [Tooltip("Range の想定最小/最大。統計レンジに合わせること")]
+    [Tooltip("Range の想定最小／最大値。統計レンジに合わせて設定します。")]
     public Vector2 rngRange  = new Vector2(10f, 35f);
-    [Tooltip("Mean の想定最小/最大。統計レンジに合わせること")]
+    [Tooltip("Mean の想定最小／最大値。統計レンジに合わせて設定します。")]
     public Vector2 meanRange = new Vector2(65f, 95f);
 
-    [Header("Distribution Shaping (gamma) 0.1~3")]
-    [Tooltip("HR 正規化時のガンマ。<1: 低値を広げる / >1: 高値を強調")] public float hrGamma   = 0.9f;
-    [Tooltip("CV 正規化時のガンマ")]                                     public float cvGamma   = 0.9f;
-    [Tooltip("Range 正規化時のガンマ")]                                  public float rngGamma  = 0.9f;
-    [Tooltip("Mean 正規化時のガンマ")]                                   public float meanGamma = 0.9f;
+    [Header("分布調整（ガンマ）0.1～3")]
+    [Tooltip("HR を正規化する際のガンマ値。1 未満で低値を強調し、1 超で高値を強調します。")]
+    public float hrGamma   = 0.9f;
+    [Tooltip("CV を正規化する際のガンマ値です。")]
+    public float cvGamma   = 0.9f;
+    [Tooltip("Range を正規化する際のガンマ値です。")]
+    public float rngGamma  = 0.9f;
+    [Tooltip("Mean を正規化する際のガンマ値です。")]
+    public float meanGamma = 0.9f;
 
-    [Header("Color (HSV)")]
-    [Tooltip("Saturation のレンジ")] public Vector2 satRange = new Vector2(0.55f, 0.95f);
-    [Tooltip("Value のレンジ")]      public Vector2 valRange = new Vector2(0.85f, 1.00f);
-    [Tooltip("Hue 決定時の重み (hr, cv, range)")] public Vector3 hueWeights = new Vector3(0.65f, 0.25f, 0.10f);
+    [Header("色設定（HSV）")]
+    [Tooltip("彩度（S）のレンジ。")]
+    public Vector2 satRange = new Vector2(0.55f, 0.95f);
+    [Tooltip("明度（V）のレンジ。")]
+    public Vector2 valRange = new Vector2(0.85f, 1.00f);
+    [Tooltip("色相（H）を決める際の重み（hr, cv, range の順）。")]
+    public Vector3 hueWeights = new Vector3(0.65f, 0.25f, 0.10f);
 
-    [Header("Radius (pixels or world units)")]
-    [Tooltip("視覚半径のレンジ。HeartVisual.SetRadius に適用")] public Vector2 radiusRange = new Vector2(0.15f, 0.45f);
-    [Tooltip("Spawn 時に radius を自動適用するか。false の場合は外部で制御")] public bool setRadiusOnSpawn = true;
+    [Header("半径（ピクセルまたはワールド単位）")]
+    [Tooltip("見た目の半径レンジ。HeartVisual.SetRadius に渡されます。")]
+    public Vector2 radiusRange = new Vector2(0.15f, 0.45f);
+    [Tooltip("生成時に radius を自動適用するかどうか。false の場合は外部で設定します。")]
+    public bool setRadiusOnSpawn = true;
 
-    [Header("Shape (legacy)")]
-    [Tooltip("旧システムの ShapeType 数。後方互換のため残置。現在は未使用")] public int shapeCount = 3;
+    [Header("形状（レガシー）")]
+    [Tooltip("旧システム由来の ShapeType 数。互換性のために残しています（現在は未使用）。")]
+    public int shapeCount = 3;
 
     public void Apply(HeartProfile hp, HeartVisual vis)
     {
