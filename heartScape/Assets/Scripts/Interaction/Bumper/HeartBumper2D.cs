@@ -8,21 +8,27 @@ public class HeartBumper2D : MonoBehaviour
     [Tooltip("衝突したハートに与える速度（m/s）。")]
     public float bounceSpeed = 12f;
 
-    [Tooltip("既存の速度を上書きするかどうか。オフの場合は速度へ加算します。")]
+    [Tooltip("既存の速度を上書きするかどうか。オフの場合は速度に加算します。")]
     public bool overrideVelocity = true;
 
-    [Tooltip("押し出し方向に追加する上向きバイアス（0 で無効）。")]
+    [Tooltip("押し出す方向に追加する上向きバイアスです（0 で無効）。")]
     public float upwardBias = 0f;
 
     [Header("ビジュアル演出")]
-    [Tooltip("拡大演出を適用する対象。未設定の場合は自分自身を使用します。")]
+    [Tooltip("拡大／振動演出を適用する対象。未設定時はこのオブジェクトを使用します。")]
     public Transform visualTarget;
 
-    [Tooltip("衝突時に一時的に拡大する倍率です。")]
+    [Tooltip("衝突時の最大拡大倍率です。1 を超える値を指定してください。")]
     public float visualScaleMultiplier = 1.25f;
 
-    [Tooltip("拡大から元に戻るまでの時間（秒）。")]
-    public float visualDuration = 0.25f;
+    [Tooltip("振動演出が収束するまでの時間（秒）。")]
+    public float visualDuration = 0.35f;
+
+    [Tooltip("振動演出の減衰係数です。大きいほど早く収束します。")]
+    public float visualShakeDamping = 6f;
+
+    [Tooltip("振動演出の振動数（Hz）です。")]
+    public float visualShakeFrequency = 10f;
 
     Collider2D bumperCollider;
     Vector3 baseScale = Vector3.one;
@@ -68,40 +74,45 @@ public class HeartBumper2D : MonoBehaviour
 
         dir = dir.normalized;
 
-        Vector2 newVelocity = dir * bounceSpeed;
+        Vector2 impulse = dir * bounceSpeed;
 
         if (overrideVelocity)
-        {
-            rb.linearVelocity = newVelocity;
-        }
+            rb.linearVelocity = impulse;
         else
-        {
-            rb.linearVelocity += newVelocity;
-        }
+            rb.linearVelocity += impulse;
 
-        TriggerVisualPop();
+        heart.NotifyExternalBounce(rb.linearVelocity.normalized, bounceSpeed);
+
+        StartVisualShake();
     }
 
-    void TriggerVisualPop()
+    void StartVisualShake()
     {
-        if (visualTarget == null || visualScaleMultiplier <= 1f || visualDuration <= 0f)
+        if (visualTarget == null || visualDuration <= 0f)
             return;
 
         if (visualRoutine != null)
             StopCoroutine(visualRoutine);
 
-        visualRoutine = StartCoroutine(VisualPopRoutine());
+        visualRoutine = StartCoroutine(VisualShakeRoutine());
     }
 
-    IEnumerator VisualPopRoutine()
+    IEnumerator VisualShakeRoutine()
     {
         float timer = 0f;
+        float amplitude = Mathf.Max(0f, visualScaleMultiplier - 1f);
+        float omega = Mathf.Max(0.01f, visualShakeFrequency) * Mathf.PI * 2f;
+        float damping = Mathf.Max(0f, visualShakeDamping);
+
         while (timer < visualDuration)
         {
-            float t = timer / visualDuration;
-            float curve = Mathf.Sin(t * Mathf.PI); // 0→1→0 の滑らかな曲線
-            float scale = Mathf.Lerp(1f, visualScaleMultiplier, curve);
-            visualTarget.localScale = baseScale * scale;
+            float envelope = Mathf.Exp(-damping * timer);
+            float oscillation = Mathf.Cos(omega * timer);
+            float scaleFactor = 1f + amplitude * envelope * oscillation;
+            float minScale = Mathf.Max(0.2f, 1f - amplitude);
+            scaleFactor = Mathf.Clamp(scaleFactor, minScale, 1f + amplitude);
+            visualTarget.localScale = baseScale * scaleFactor;
+
             timer += Time.deltaTime;
             yield return null;
         }

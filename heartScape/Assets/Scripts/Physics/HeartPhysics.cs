@@ -524,6 +524,23 @@ public class HeartPhysics : MonoBehaviour
         return Vector2.Lerp(b, a, pulseDirVelBias).normalized;
     }
 
+
+    /// <summary>外部からの衝突による演出を発生させたいときに呼び出します。direction は移動方向を指定します。
+    /// impactSpeed は擬似的な衝突速度を表す値です。
+    public void NotifyExternalBounce(Vector2 direction, float impactSpeed)
+    {
+        if (impactSpeed <= 0f) return;
+        Vector2 dir = direction;
+        if (dir.sqrMagnitude <= 1e-6f)
+        {
+            dir = (rb != null && rb.linearVelocity.sqrMagnitude > 1e-6f) ? rb.linearVelocity.normalized : RandomDir();
+        }
+        if (collisionVisualEnabled)
+        {
+            TriggerVisualBounce(dir.normalized, impactSpeed);
+        }
+    }
+
     Vector2 RandomDir()
     {
         float nx = Mathf.PerlinNoise(seed,         Time.time * 0.7f) * 2f - 1f;
