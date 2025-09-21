@@ -44,6 +44,7 @@ public class BubbleShellDeformer2D : MonoBehaviour
     static readonly int PropImpCount = Shader.PropertyToID("_ImpCount");
     static readonly int PropImpulses = Shader.PropertyToID("_Impulses");
     static readonly int PropRimWidth = Shader.PropertyToID("_RimWidth");
+    
 
     readonly List<Impulse> impulses = new();
     readonly Vector4[] buffer = new Vector4[8];
