@@ -18,22 +18,31 @@ public class HeartAbsorber2D : MonoBehaviour
     [Tooltip("吸収演出の補間カーブ（0～1）です。")]
     public AnimationCurve absorbEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
-    [Header("色の混ざり方")]
-    [Tooltip("新しい色を取り込んだときに現在の色へどれだけ寄せるか（0～1）。")]
-    [Range(0f, 1f)] public float mixFactor = 0.35f;
+    [Header("ビジュアル（液体＆破裂）")]
+    [Tooltip("内部液体の可視化制御。未指定なら子階層から検索します。")]
+    public BubbleVisual2D bubbleVisual;
 
-    [Tooltip("取り込むたびに増える透明度のステップです。")]
-    public float alphaStep = 0.12f;
+    [Tooltip("破裂（花火）VFX。未指定なら子階層から検索します。")]
+    public BubblePopVFX bubblePopVFX;
 
-    [Header("ビジュアル参照")]
+    [Tooltip("注入座標の優先Transform。指定があればここへ注入します。")]
+    public Transform injectPointOverride;
+
+    [Tooltip("接触点へ注入する（優先）。falseならバブル中心へ注入。")]
+    public bool injectAtContactPoint = true;
+
+    [Header("殻の見た目（SpriteRenderer）")]
     [Tooltip("本体のスプライト。未指定の場合は子要素から検索します。")]
     public SpriteRenderer bodyRenderer;
 
-    [Tooltip("内部のゆらめきを表現するパーティクル（任意）。色が更新されます。")]
-    public ParticleSystem auraParticle;
+    [Tooltip("取り込むたびに増える殻の透明度ステップ。")]
+    public float alphaStep = 0.12f;
 
-    [Tooltip("吸収時に再生するパーティクル（任意）。")] public ParticleSystem absorbBurstPrefab;
-    [Tooltip("爆発時に再生する花火パーティクル（任意）。")] public ParticleSystem explosionPrefab;
+    [Header("パーティクル（任意）")]
+    [Tooltip("内部のゆらめきパーティクル。パレット更新に使います（任意）。")]
+    public ParticleSystem auraParticle;
+    [Tooltip("吸収時のワンショット（任意）。")]
+    public ParticleSystem absorbBurstPrefab;
 
     [Header("再出現演出")]
     [Tooltip("爆発後に自動で再出現するかどうか。")]
@@ -42,7 +51,7 @@ public class HeartAbsorber2D : MonoBehaviour
     [Tooltip("再出現までの遅延（秒）です。")]
     public float respawnDelay = 3f;
 
-    [Tooltip("フェードインにかける時間（秒）です。0 にすると即座に表示されます。")]
+    [Tooltip("フェードインにかける時間（秒）です。0 にすると即座に表示。")]
     public float fadeInDuration = 0.6f;
 
     [Tooltip("フェードインに使用する補間カーブです。")]
@@ -51,6 +60,7 @@ public class HeartAbsorber2D : MonoBehaviour
     [Tooltip("待機時の基本透明度です。")]
     [Range(0f, 1f)] public float idleAlpha = 0.2f;
 
+    // 内部状態
     Collider2D absorberCollider;
     readonly HashSet<int> absorbingIds = new();
     readonly List<Color> capturedColors = new();
@@ -67,11 +77,16 @@ public class HeartAbsorber2D : MonoBehaviour
 
         if (bodyRenderer == null)
             bodyRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (bubbleVisual == null)
+            bubbleVisual = GetComponentInChildren<BubbleVisual2D>();
+        if (bubblePopVFX == null)
+            bubblePopVFX = GetComponentInChildren<BubblePopVFX>();
 
         if (bodyRenderer != null)
         {
             baseColor = bodyRenderer.color;
             idleColor = new Color(baseColor.r, baseColor.g, baseColor.b, idleAlpha);
+            // 初期は非表示→フェードイン
             bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
         }
     }
@@ -96,6 +111,10 @@ public class HeartAbsorber2D : MonoBehaviour
             bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
             StartFadeIn();
         }
+
+        // 液体クリア
+        if (bubbleVisual != null)
+            bubbleVisual.ClearDye();
 
         UpdateAuraGradient();
     }
@@ -146,10 +165,12 @@ public class HeartAbsorber2D : MonoBehaviour
         if (heart == null) return;
         if (!absorbingIds.Add(heart.GetInstanceID())) return;
 
-        StartCoroutine(AbsorbHeartRoutine(heart));
+        // 接触点を先に算出して渡す
+        Vector2 contact = injectAtContactPoint ? other.ClosestPoint(transform.position) : (Vector2)transform.position;
+        StartCoroutine(AbsorbHeartRoutine(heart, contact));
     }
 
-    IEnumerator AbsorbHeartRoutine(HeartPhysics heart)
+    IEnumerator AbsorbHeartRoutine(HeartPhysics heart, Vector2 contactPoint)
     {
         var heartTransform = heart.transform;
         var rb = heart.GetComponent<Rigidbody2D>();
@@ -159,11 +180,17 @@ public class HeartAbsorber2D : MonoBehaviour
         if (rb != null)
         {
             rb.simulated = false;
-            rb.linearVelocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero; // ★ 2Dは velocity
         }
 
         Vector3 startPos = heartTransform.position;
         Vector3 startScale = heartTransform.localScale;
+
+        // 注入座標の決定
+        Vector3 injectPos =
+            injectPointOverride != null ? injectPointOverride.position :
+            (injectAtContactPoint ? (Vector3)contactPoint : transform.position);
+
         Vector3 endPos = transform.position;
         Vector3 endScale = startScale * Mathf.Max(0.01f, absorbScaleFactor);
 
@@ -183,30 +210,35 @@ public class HeartAbsorber2D : MonoBehaviour
 
         heartTransform.position = endPos;
 
+        // 液体へ“非混色”注入（RGBAチャンネル割当て）
+        if (bubbleVisual != null)
+            bubbleVisual.InjectFromWorld(injectPos, heart.GetInstanceID(), heartColor);
+
+        // 吸収のワンショット
+        SpawnAbsorbEffect(heartColor);
+
+        // Heartの破棄
         Destroy(heart.gameObject);
         absorbingIds.Remove(heart.GetInstanceID());
 
+        // カウントとUI
         capturedCount++;
         capturedColors.Add(heartColor);
-        UpdateVisualFromCapture(heartColor);
-        SpawnAbsorbEffect(heartColor);
+        BumpShellAlpha();      // 殻のアルファだけ上げる（色混合しない）
+        UpdateAuraGradient();  // オーラのグラデ更新
 
         if (capturedCount >= requiredCaptureCount)
             StartCoroutine(ExplodeRoutine());
     }
 
-    void UpdateVisualFromCapture(Color newColor)
+    // ★ 殻の色は混ぜない：アルファのみ段階的に上げる
+    void BumpShellAlpha()
     {
-        if (bodyRenderer != null)
-        {
-            Color current = bodyRenderer.color.a <= 0.001f ? idleColor : bodyRenderer.color;
-            Color mixed = Color.Lerp(current, newColor, Mathf.Clamp01(mixFactor));
-            float targetAlpha = Mathf.Clamp01(Mathf.Max(idleAlpha, current.a + alphaStep));
-            mixed.a = targetAlpha;
-            bodyRenderer.color = mixed;
-        }
-
-        UpdateAuraGradient();
+        if (bodyRenderer == null) return;
+        Color current = bodyRenderer.color.a <= 0.001f ? idleColor : bodyRenderer.color;
+        float targetAlpha = Mathf.Clamp01(Mathf.Max(idleAlpha, current.a + alphaStep));
+        current.a = targetAlpha;
+        bodyRenderer.color = current;
     }
 
     void UpdateAuraGradient()
@@ -228,6 +260,7 @@ public class HeartAbsorber2D : MonoBehaviour
             var gradient = new ParticleSystem.MinMaxGradient(g);
             main.startColor = gradient;
             colorModule.color = gradient;
+            if (!auraParticle.isPlaying) auraParticle.Play(true);
             return;
         }
 
@@ -246,8 +279,7 @@ public class HeartAbsorber2D : MonoBehaviour
         var minMax = new ParticleSystem.MinMaxGradient(gradientData);
         main.startColor = minMax;
         colorModule.color = minMax;
-        if (!auraParticle.isPlaying)
-            auraParticle.Play(true);
+        if (!auraParticle.isPlaying) auraParticle.Play(true);
     }
 
     void SpawnAbsorbEffect(Color color)
@@ -264,17 +296,17 @@ public class HeartAbsorber2D : MonoBehaviour
         if (absorberCollider != null)
             absorberCollider.enabled = false;
 
-        Color explosionColor = GetExplosionColor();
+        // 花火（パレットは BubbleVisual2D 側の4色を使用）
+        if (bubblePopVFX != null)
+            bubblePopVFX.PlayPop();
 
-        if (explosionPrefab != null)
-        {
-            var fx = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
-            var main = fx.main;
-            main.startColor = new ParticleSystem.MinMaxGradient(explosionColor);
-        }
-
+        // 殻を隠す
         if (bodyRenderer != null)
             bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
+
+        // 液体をリセット
+        if (bubbleVisual != null)
+            bubbleVisual.ClearDye();
 
         capturedColors.Clear();
         capturedCount = 0;
@@ -295,26 +327,20 @@ public class HeartAbsorber2D : MonoBehaviour
         isInactive = false;
         if (absorberCollider != null)
             absorberCollider.enabled = true;
+
         if (bodyRenderer != null)
         {
             bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
             StartFadeIn();
         }
+
+        // 念のため液体もクリア
+        if (bubbleVisual != null)
+            bubbleVisual.ClearDye();
+
         UpdateAuraGradient();
     }
 
-    Color GetExplosionColor()
-    {
-        if (capturedColors.Count == 0)
-            return Color.white;
-
-        Color result = capturedColors[0];
-        for (int i = 1; i < capturedColors.Count; i++)
-        {
-            float weight = 1f / (i + 1f);
-            result = Color.Lerp(result, capturedColors[i], weight);
-        }
-        result.a = 1f;
-        return result;
-    }
+    // 旧：GetExplosionColor は不要（花火はパレットからEmit）
+    // 必要なら残せますが、今回は未使用のため削除しています。
 }

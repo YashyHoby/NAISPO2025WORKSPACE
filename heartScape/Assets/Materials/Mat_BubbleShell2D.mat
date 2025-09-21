@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: mat_BubbleIridescent2D
+  m_Name: Mat_BubbleShell2D
   m_Shader: {fileID: 4800000, guid: c724c86b62d53c441b5aee6dbae138bc, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -108,6 +108,7 @@ Material:
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
+    - _Distort: 0.66
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
@@ -116,14 +117,18 @@ Material:
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _IriIntensity: 0.85
+    - _Iridescence: 0.513
     - _Metallic: 0
     - _NoiseAmp: 0.04
-    - _NoiseScale: 3
+    - _NoiseScale: 3.18
+    - _NoiseSpeed: 1.03
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _RimPower: 2
+    - _RimPower: 1.42
+    - _RimWidth: 0.12
+    - _ShellAlpha: 0.608
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -136,6 +141,7 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RimTint: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

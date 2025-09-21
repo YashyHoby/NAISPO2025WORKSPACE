@@ -1,22 +1,22 @@
-Shader "Unlit/BubbleIridescent2D"
+Shader "Unlit/BubbleShell2D"
 {
     Properties
     {
-        [PerRendererData]_MainTex ("Sprite", 2D) = "white" {}
-        _BaseColor ("Base Tint", Color) = (1,1,1,1)
-        _Alpha ("Alpha", Range(0,1)) = 0.2
-        _RimPower ("Rim Power", Range(0.1,8)) = 2
-        _IriIntensity ("Iridescence", Range(0,1)) = 0.85
-        _Film ("Film Thickness", Range(0,2)) = 0.6
-        _NoiseScale ("Distort Noise Scale", Range(0,10)) = 3
-        _NoiseAmp ("Distort Noise Amp", Range(0,0.2)) = 0.04
+        _ShellAlpha("Shell Alpha", Range(0,1)) = 0.35
+        _RimPower("Rim Power", Range(0.5,8)) = 2.2
+        _Iridescence("Iridescence Strength", Range(0,1)) = 0.35
+        _Distort("Refraction Distortion", Range(0,2)) = 0.35
+        _NoiseScale("Noise Scale", Range(0.1,10)) = 2.5
+        _NoiseSpeed("Noise Speed", Range(0,5)) = 0.8
     }
+
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Transparent" "CanUseSpriteAtlas"="True" }
+        Tags{"Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True"}
+        LOD 100
         Blend SrcAlpha OneMinusSrcAlpha
-        Cull Off
         ZWrite Off
+        Cull Off
 
         Pass
         {
@@ -25,66 +25,70 @@ Shader "Unlit/BubbleIridescent2D"
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            struct appdata {
+            struct appdata
+            {
                 float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-                float4 color : COLOR;
+                float2 uv     : TEXCOORD0;
+                float4 color  : COLOR;
             };
-            struct v2f {
+            struct v2f
+            {
                 float4 pos : SV_POSITION;
-                float2 uv : TEXCOORD0;
+                float2 uv  : TEXCOORD0;
                 float4 color : COLOR;
+                float3 viewDirWS : TEXCOORD1;
+                float3 worldPos  : TEXCOORD2;
             };
 
-            TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
-            float4 _MainTex_ST;
-            float4 _BaseColor;
-            float _Alpha, _RimPower, _IriIntensity, _Film, _NoiseScale, _NoiseAmp;
+            float _ShellAlpha, _RimPower, _Iridescence, _Distort, _NoiseScale, _NoiseSpeed;
 
-            // シンプルなノイズ
-            float hash21(float2 p){ p=fract(p*float2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
-            float noise(float2 p){ float2 i=floor(p), f=fract(p);
-            float a=hash21(i), b=hash21(i+float2(1,0));
-            float c=hash21(i+float2(0,1)), d=hash21(i+float2(1,1));
-            float2 u=f*f*(3-2*f);
-            return lerp(lerp(a,b,u.x), lerp(c,d,u.x), u.y); }
+            TEXTURE2D(_CameraOpaqueTexture);
+            SAMPLER(sampler_CameraOpaqueTexture);
 
-            v2f vert (appdata v){
+            float hash21(float2 p){ p = frac(p*float2(123.34,456.21)); p += dot(p,p+45.32); return frac(p.x*p.y); }
+            float noise(float2 p){ // cheap value noise
+                float2 i=floor(p), f=frac(p);
+                float a=hash21(i);
+                float b=hash21(i+float2(1,0));
+                float c=hash21(i+float2(0,1));
+                float d=hash21(i+float2(1,1));
+                float2 u=f*f*(3-2*f);
+                return lerp(lerp(a,b,u.x), lerp(c,d,u.x), u.y);
+            }
+
+            v2f vert(appdata v)
+            {
                 v2f o;
                 o.pos = TransformObjectToHClip(v.vertex.xyz);
-                o.uv = TRANSFORM_TEX(v.uv,_MainTex);
+                o.uv = v.uv;
                 o.color = v.color;
+                float3 ws = TransformObjectToWorld(v.vertex.xyz);
+                o.worldPos = ws;
+                float3 camPos = GetCameraPositionWS();
+                o.viewDirWS = normalize(camPos - ws);
                 return o;
             }
 
-            float3 thinFilmRainbow(float rim, float film, float iri){
-                // 擬似虹色（薄膜干渉っぽい色ずれ）
-                float w = rim * (2.5 + film*3.0);
-                float r = 0.5 + 0.5*sin(6.2831*(w+0.00));
-                float g = 0.5 + 0.5*sin(6.2831*(w+0.33));
-                float b = 0.5 + 0.5*sin(6.2831*(w+0.66));
-                return lerp(float3(1,1,1), float3(r,g,b), iri);
-            }
-
-            half4 frag (v2f i) : SV_Target
+            float4 frag(v2f i) : SV_Target
             {
-                float4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
-                // 円スプライトのUV中心から半径
-                float2 d = (i.uv - 0.5);
-                float r = length(d)*2; // 約1で端
-                // リム（縁）強調
-                float rim = pow(saturate(1.0 - r), _RimPower);
+                // 円形スプライト前提：UV中心(0.5,0.5)からの半径でリムを作る
+                float2 uv = i.uv * 2 - 1; // [-1,1]
+                float r = saturate(length(uv));
+                float rim = pow(saturate(1 - r), _RimPower);
 
-                // 薄い歪み
-                float n = noise(i.uv * _NoiseScale + _Time.y);
-                float rimD = saturate(rim + (n-0.5)*_NoiseAmp);
+                // のぞき込み屈折（簡易）: ノイズで背景サンプルUVをずらす
+                float t = _Time.y * _NoiseSpeed;
+                float2 dn = float2(noise(i.uv*_NoiseScale + t), noise(i.uv*_NoiseScale*1.231 - t));
+                float2 offset = (dn - 0.5) * _Distort * 0.02; // 微小ずれ
+                float2 screenUV = GetNormalizedScreenSpaceUV(i.pos);
+                float4 bg = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, screenUV + offset);
 
-                float3 iri = thinFilmRainbow(1.0 - rimD, _Film, _IriIntensity);
-                float3 baseCol = _BaseColor.rgb * iri;
+                // シャボン玉らしい虹色
+                float3 irid = 0.5 + 0.5*cos(6.2831*(r + float3(0.0,0.33,0.66)));
+                float3 shellCol = lerp(bg.rgb, bg.rgb + irid*_Iridescence, 0.6);
 
-                // 中央を薄く、縁で少し強く
-                float a = tex.a * ( _Alpha + (1.0 - saturate(r))*0.12 );
-                return float4(baseCol, a);
+                float alpha = _ShellAlpha * (rim + 0.05); // 外周が少し濃い
+                return float4(shellCol, alpha);
             }
             ENDHLSL
         }
