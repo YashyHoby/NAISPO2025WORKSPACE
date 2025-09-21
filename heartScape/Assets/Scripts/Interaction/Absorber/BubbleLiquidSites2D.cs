@@ -40,10 +40,12 @@ public class BubbleLiquidSites2D : MonoBehaviour
     void OnValidate()
     {
         // エディタ上での割り当て漏れにも対応
-        if (liquidMat == null)
+        var r = GetComponent<SpriteRenderer>();
+        if (r != null)
         {
-            var r = GetComponent<SpriteRenderer>();
-            if (r != null) liquidMat = Application.isPlaying ? r.material : r.sharedMaterial;
+            var shared = r.sharedMaterial;
+            if (liquidMat == null || ReferenceEquals(liquidMat, shared))
+                liquidMat = Application.isPlaying ? r.material : shared;
         }
         SyncToMat();
     }
@@ -154,3 +156,8 @@ public class BubbleLiquidSites2D : MonoBehaviour
     }
 
 }
+
+
+
+
+

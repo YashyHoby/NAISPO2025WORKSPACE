@@ -55,7 +55,7 @@
                 // 円内マスク
                 float2 uvBall = i.uv*2-1;
                 float r = length(uvBall);
-                float mask = 1.0 - smoothstep(1.0, 1.0 - _EdgeSoft, r);
+                float mask = 1.0 - smoothstep(1.0 - _EdgeSoft, 1.0, r);
                 if (_SiteCount < 0.5 || mask <= 1e-3) return float4(0,0,0,0);
 
                 // ドメインワープ
@@ -81,3 +81,4 @@
         }
     }
 }
+
