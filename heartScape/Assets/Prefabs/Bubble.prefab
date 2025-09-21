@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1047605547424747503}
   - component: {fileID: 381385849260983337}
-  - component: {fileID: 287024996755264593}
   m_Layer: 0
   m_Name: BubbleLiquid
   m_TagString: Untagged
@@ -88,25 +87,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &287024996755264593
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 990191503762385883}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 16bf4474ec2f3984ebe333c122f3a713, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dyeSize: 256
-  liquidMat: {fileID: 2100000, guid: b12554373f3b7c246b2c8a25ebc8b9e2, type: 2}
-  shellMat: {fileID: 0}
-  injectRadius: 0.08
-  injectPower: 0.9
-  decay: 0.995
-  blur: 0.25
 --- !u!1 &1750230507219208066
 GameObject:
   m_ObjectHideFlags: 0
@@ -4953,7 +4933,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 59424f1282f06a1479e78aaa58ad8c77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bubble: {fileID: 287024996755264593}
+  bubble: {fileID: 0}
   speedOverLife:
     serializedVersion: 2
     m_Curve:

@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_BubbleShell2D
+  m_Name: Mat_BubbleShellDeform2D
   m_Shader: {fileID: 4800000, guid: 59da86b1e77661641a344a612bd06791, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
