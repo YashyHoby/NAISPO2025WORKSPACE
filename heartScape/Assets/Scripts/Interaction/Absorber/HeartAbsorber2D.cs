@@ -9,43 +9,56 @@ public class HeartAbsorber2D : MonoBehaviour
     [Tooltip("この数だけハートを取り込むと爆発します。")]
     public int requiredCaptureCount = 5;
 
-    [Tooltip("吸い込みに要する時間（秒）。")]
+    [Tooltip("吸い込みにかかる時間（秒）です。")]
     public float absorbDuration = 0.35f;
 
     [Tooltip("吸い込み中にハートを縮小させる倍率です。")]
     public float absorbScaleFactor = 0.6f;
 
-    [Tooltip("吸収演出の補間カーブです（0→1）。")]
+    [Tooltip("吸収演出の補間カーブ（0～1）です。")]
     public AnimationCurve absorbEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("色の混ざり方")]
-    [Tooltip("新しい色を取り込んだ際に現在の色へどれだけ寄せるか。0～1。")]
+    [Tooltip("新しい色を取り込んだときに現在の色へどれだけ寄せるか（0～1）。")]
     [Range(0f, 1f)] public float mixFactor = 0.35f;
 
     [Tooltip("取り込むたびに増える透明度のステップです。")]
     public float alphaStep = 0.12f;
 
     [Header("ビジュアル参照")]
-    [Tooltip("本体のスプライト。未指定の場合は子から検索します。")]
+    [Tooltip("本体のスプライト。未指定の場合は子要素から検索します。")]
     public SpriteRenderer bodyRenderer;
 
-    [Tooltip("内部でゆらめくパーティクル（任意）。開始色が更新されます。")]
+    [Tooltip("内部のゆらめきを表現するパーティクル（任意）。色が更新されます。")]
     public ParticleSystem auraParticle;
 
     [Tooltip("吸収時に再生するパーティクル（任意）。")] public ParticleSystem absorbBurstPrefab;
-    [Tooltip("爆発時に再生するパーティクル（任意）。")] public ParticleSystem explosionPrefab;
+    [Tooltip("爆発時に再生する花火パーティクル（任意）。")] public ParticleSystem explosionPrefab;
 
-    [Header("再出現")]
-    [Tooltip("爆発後に再出現するまでの遅延（秒）。")] public float respawnDelay = 3f;
+    [Header("再出現演出")]
+    [Tooltip("爆発後に自動で再出現するかどうか。")]
+    public bool autoRespawn = true;
 
-    [Tooltip("爆発後に自動的に再出現するか。")] public bool autoRespawn = true;
+    [Tooltip("再出現までの遅延（秒）です。")]
+    public float respawnDelay = 3f;
+
+    [Tooltip("フェードインにかける時間（秒）です。0 にすると即座に表示されます。")]
+    public float fadeInDuration = 0.6f;
+
+    [Tooltip("フェードインに使用する補間カーブです。")]
+    public AnimationCurve fadeInCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+    [Tooltip("待機時の基本透明度です。")]
+    [Range(0f, 1f)] public float idleAlpha = 0.2f;
 
     Collider2D absorberCollider;
     readonly HashSet<int> absorbingIds = new();
     readonly List<Color> capturedColors = new();
-    Color baseColor = new Color(1f, 1f, 1f, 0f);
+    Color baseColor = Color.white;
+    Color idleColor = new Color(1f, 1f, 1f, 0f);
     int capturedCount = 0;
     bool isInactive = false;
+    Coroutine fadeRoutine;
 
     void Awake()
     {
@@ -58,18 +71,71 @@ public class HeartAbsorber2D : MonoBehaviour
         if (bodyRenderer != null)
         {
             baseColor = bodyRenderer.color;
-            baseColor.a = 0f;
-            bodyRenderer.color = baseColor;
+            idleColor = new Color(baseColor.r, baseColor.g, baseColor.b, idleAlpha);
+            bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
         }
     }
 
     void OnEnable()
     {
-        if (bodyRenderer != null)
-            bodyRenderer.color = baseColor;
+        ResetState();
+    }
+
+    void ResetState()
+    {
+        absorbingIds.Clear();
         capturedColors.Clear();
         capturedCount = 0;
         isInactive = false;
+
+        if (absorberCollider != null)
+            absorberCollider.enabled = true;
+
+        if (bodyRenderer != null)
+        {
+            bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
+            StartFadeIn();
+        }
+
+        UpdateAuraGradient();
+    }
+
+    void StartFadeIn()
+    {
+        if (fadeRoutine != null)
+            StopCoroutine(fadeRoutine);
+        fadeRoutine = StartCoroutine(FadeInRoutine());
+    }
+
+    IEnumerator FadeInRoutine()
+    {
+        float timer = 0f;
+        float duration = Mathf.Max(0f, fadeInDuration);
+
+        if (duration <= Mathf.Epsilon)
+        {
+            if (bodyRenderer != null)
+                bodyRenderer.color = idleColor;
+            fadeRoutine = null;
+            yield break;
+        }
+
+        while (timer < duration)
+        {
+            float t = timer / duration;
+            float eased = fadeInCurve != null ? fadeInCurve.Evaluate(t) : t;
+            if (bodyRenderer != null)
+            {
+                Color c = Color.Lerp(new Color(baseColor.r, baseColor.g, baseColor.b, 0f), idleColor, eased);
+                bodyRenderer.color = c;
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        if (bodyRenderer != null)
+            bodyRenderer.color = idleColor;
+        fadeRoutine = null;
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -126,26 +192,62 @@ public class HeartAbsorber2D : MonoBehaviour
         SpawnAbsorbEffect(heartColor);
 
         if (capturedCount >= requiredCaptureCount)
-        {
             StartCoroutine(ExplodeRoutine());
-        }
     }
 
     void UpdateVisualFromCapture(Color newColor)
     {
-        if (bodyRenderer == null) return;
-
-        Color current = bodyRenderer.color.a <= 0.001f ? new Color(newColor.r, newColor.g, newColor.b, 0f) : bodyRenderer.color;
-        Color mixed = Color.Lerp(current, newColor, Mathf.Clamp01(mixFactor));
-        float targetAlpha = Mathf.Clamp01(current.a + alphaStep);
-        mixed.a = targetAlpha;
-        bodyRenderer.color = mixed;
-
-        if (auraParticle != null)
+        if (bodyRenderer != null)
         {
-            var main = auraParticle.main;
-            main.startColor = new ParticleSystem.MinMaxGradient(mixed);
+            Color current = bodyRenderer.color.a <= 0.001f ? idleColor : bodyRenderer.color;
+            Color mixed = Color.Lerp(current, newColor, Mathf.Clamp01(mixFactor));
+            float targetAlpha = Mathf.Clamp01(Mathf.Max(idleAlpha, current.a + alphaStep));
+            mixed.a = targetAlpha;
+            bodyRenderer.color = mixed;
         }
+
+        UpdateAuraGradient();
+    }
+
+    void UpdateAuraGradient()
+    {
+        if (auraParticle == null)
+            return;
+
+        var main = auraParticle.main;
+        var colorModule = auraParticle.colorOverLifetime;
+        colorModule.enabled = true;
+
+        if (capturedColors.Count == 0)
+        {
+            Gradient g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(idleColor, 0f), new GradientColorKey(idleColor, 1f) },
+                new[] { new GradientAlphaKey(idleAlpha, 0f), new GradientAlphaKey(idleAlpha, 1f) }
+            );
+            var gradient = new ParticleSystem.MinMaxGradient(g);
+            main.startColor = gradient;
+            colorModule.color = gradient;
+            return;
+        }
+
+        List<GradientColorKey> cKeys = new();
+        List<GradientAlphaKey> aKeys = new();
+        float step = capturedColors.Count > 1 ? 1f / (capturedColors.Count - 1) : 1f;
+        for (int i = 0; i < capturedColors.Count; i++)
+        {
+            float t = capturedColors.Count > 1 ? Mathf.Clamp01(i * step) : 0.5f;
+            Color c = capturedColors[i];
+            cKeys.Add(new GradientColorKey(c, t));
+            aKeys.Add(new GradientAlphaKey(Mathf.Clamp01(c.a), t));
+        }
+        Gradient gradientData = new Gradient();
+        gradientData.SetKeys(cKeys.ToArray(), aKeys.ToArray());
+        var minMax = new ParticleSystem.MinMaxGradient(gradientData);
+        main.startColor = minMax;
+        colorModule.color = minMax;
+        if (!auraParticle.isPlaying)
+            auraParticle.Play(true);
     }
 
     void SpawnAbsorbEffect(Color color)
@@ -159,7 +261,8 @@ public class HeartAbsorber2D : MonoBehaviour
     IEnumerator ExplodeRoutine()
     {
         isInactive = true;
-        absorberCollider.enabled = false;
+        if (absorberCollider != null)
+            absorberCollider.enabled = false;
 
         Color explosionColor = GetExplosionColor();
 
@@ -171,9 +274,7 @@ public class HeartAbsorber2D : MonoBehaviour
         }
 
         if (bodyRenderer != null)
-        {
             bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
-        }
 
         capturedColors.Clear();
         capturedCount = 0;
@@ -192,9 +293,14 @@ public class HeartAbsorber2D : MonoBehaviour
     void Respawn()
     {
         isInactive = false;
-        absorberCollider.enabled = true;
+        if (absorberCollider != null)
+            absorberCollider.enabled = true;
         if (bodyRenderer != null)
-            bodyRenderer.color = baseColor;
+        {
+            bodyRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0f);
+            StartFadeIn();
+        }
+        UpdateAuraGradient();
     }
 
     Color GetExplosionColor()
@@ -202,10 +308,10 @@ public class HeartAbsorber2D : MonoBehaviour
         if (capturedColors.Count == 0)
             return Color.white;
 
-        Color result = Color.black;
-        for (int i = 0; i < capturedColors.Count; i++)
+        Color result = capturedColors[0];
+        for (int i = 1; i < capturedColors.Count; i++)
         {
-            float weight = 1f / (i + 1);
+            float weight = 1f / (i + 1f);
             result = Color.Lerp(result, capturedColors[i], weight);
         }
         result.a = 1f;
