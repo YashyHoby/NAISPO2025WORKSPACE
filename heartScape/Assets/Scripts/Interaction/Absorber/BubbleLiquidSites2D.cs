@@ -21,7 +21,7 @@ public class BubbleLiquidSites2D : MonoBehaviour
     public float defaultGrowDuration = 0.35f;
     [Tooltip("生成直後に中心方向へ付与する速度です。")]
     public float initialDrift = 0.05f;
-    public float siteFromEdgePush = 0.08f; // 生成時に外縁から内側へ押す距離
+    public float siteFromEdgePush = 0.04f; // 生成時に外縁から内側へ押す距離
 
     [Header("Debug")]
     public bool seedOnStart = false;      // 起動テスト用：1点だけ色を出す

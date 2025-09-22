@@ -114,14 +114,14 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _EdgeSoft: 0.06
+    - _EdgeSoft: 0.1
     - _EnvironmentReflections: 1
-    - _FlowScale: 1.6
-    - _FlowSpeed: 0.7
+    - _FlowScale: 2.63
+    - _FlowSpeed: 1.77
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _InnerAlpha: 0.531
+    - _InnerAlpha: 0.6
     - _Metallic: 0
     - _NoiseScale: 2
     - _OcclusionStrength: 1

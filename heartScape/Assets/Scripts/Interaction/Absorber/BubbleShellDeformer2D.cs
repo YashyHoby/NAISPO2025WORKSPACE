@@ -41,6 +41,10 @@ public class BubbleShellDeformer2D : MonoBehaviour
     [Tooltip("リム幅の最大値。")]
     public float rimWidthMax = 0.2f;
 
+    [Header("References")]
+    [Tooltip("液体表現コンポーネントへの参照")]
+    public BubbleLiquidSites2D bubbleLiquid;
+
     static readonly int PropImpCount = Shader.PropertyToID("_ImpCount");
     static readonly int PropImpulses = Shader.PropertyToID("_Impulses");
     static readonly int PropRimWidth = Shader.PropertyToID("_RimWidth");
@@ -135,5 +139,11 @@ public class BubbleShellDeformer2D : MonoBehaviour
         }
         runtimeMaterial.SetFloat(PropImpCount, count);
         runtimeMaterial.SetVectorArray(PropImpulses, buffer);
+
+        if (bubbleLiquid != null && bubbleLiquid.liquidMat != null)
+        {
+            bubbleLiquid.liquidMat.SetFloat(PropImpCount, count);
+            bubbleLiquid.liquidMat.SetVectorArray(PropImpulses, buffer);
+        }
     }
 }

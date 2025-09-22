@@ -118,18 +118,18 @@ Material:
     - _GlossyReflections: 0
     - _ImpCount: 0
     - _IriIntensity: 0.85
-    - _Iridescence: 0.513
+    - _Iridescence: 0.608
     - _Metallic: 0
     - _NoiseAmp: 0.04
-    - _NoiseScale: 3.18
-    - _NoiseSpeed: 1.03
+    - _NoiseScale: 5.68
+    - _NoiseSpeed: 1.22
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _RimPower: 1.42
-    - _RimWidth: 0.12
-    - _ShellAlpha: 0.608
+    - _RimPower: 5.01
+    - _RimWidth: 0.44
+    - _ShellAlpha: 0.431
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
