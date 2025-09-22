@@ -15,6 +15,8 @@ public class HeartAbsorber2D : MonoBehaviour
     [Tooltip("吸い込み中にハートを縮小させる倍率です。")]
     public float absorbScaleFactor = 0.55f;
 
+    [Tooltip("接触点からバブル中心へ寄せる比率（0 = 接点, 1 = 中央までの割合）です。")]
+    [Range(0f, 1f)] public float absorbAnchorInward = 0.2f;
     [Tooltip("吸収演出の補間カーブ（0～1）です。")]
     public AnimationCurve absorbEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
@@ -212,7 +214,7 @@ public class HeartAbsorber2D : MonoBehaviour
             : (Vector2)heartTransform.position;
 
         if (bubbleLiquid != null)
-            bubbleLiquid.AddFromWorld(contactPoint, heartColor);
+            bubbleLiquid.AddFromWorld(contactPoint, heartColor, absorbDuration);
         if (shellDeformer != null)
             shellDeformer.AddImpulseWorld(contactPoint);
         if (absorbBurstPrefab != null)
@@ -229,7 +231,9 @@ public class HeartAbsorber2D : MonoBehaviour
         }
 
         Vector3 startPos = heartTransform.position;
-        Vector3 targetPos = transform.position;
+        Vector3 anchor = new Vector3(contactPoint.x, contactPoint.y, heartTransform.position.z);
+        Vector3 center = new Vector3(transform.position.x, transform.position.y, heartTransform.position.z);
+        Vector3 targetPos = Vector3.Lerp(anchor, center, Mathf.Clamp01(absorbAnchorInward));
         Vector3 startScale = heartTransform.localScale;
         Vector3 targetScale = startScale * Mathf.Max(0.01f, absorbScaleFactor);
 
@@ -330,5 +334,4 @@ public class HeartAbsorber2D : MonoBehaviour
         StartAppearanceSequence();
     }
 }
-
 

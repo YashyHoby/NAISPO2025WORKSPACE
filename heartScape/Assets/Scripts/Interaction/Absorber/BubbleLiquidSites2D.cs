@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class BubbleLiquidSites2D : MonoBehaviour
 {
     [System.Serializable]
-    struct Site { public Vector2 uv; public Vector2 vel; public Color col; public float radius; }
+    struct Site { public Vector2 uv; public Vector2 vel; public Color col; public float radius; public float targetRadius; public float age; public float growDuration; }
 
     [Header("Material")]
     // M_BubbleLiquidVoronoi2D を割り当てる
@@ -17,7 +17,11 @@ public class BubbleLiquidSites2D : MonoBehaviour
     public float attractK = 0.9f; // 中心への引力
     public float damp = 0.88f;
     public float jitter = 0.35f;
-    public float siteFromEdgePush = 0.12f; // 生成時に外縁から内側へ押す距離
+    [Tooltip("サイト半径が目標値へ到達するまでの秒数（AddFromWorld未指定時）です。")]
+    public float defaultGrowDuration = 0.35f;
+    [Tooltip("生成直後に中心方向へ付与する速度です。")]
+    public float initialDrift = 0.05f;
+    public float siteFromEdgePush = 0.08f; // 生成時に外縁から内側へ押す距離
 
     [Header("Debug")]
     public bool seedOnStart = false;      // 起動テスト用：1点だけ色を出す
@@ -65,7 +69,7 @@ public class BubbleLiquidSites2D : MonoBehaviour
         SyncToMat();
     }
 
-    public void AddFromWorld(Vector2 worldPos, Color col)
+    public void AddFromWorld(Vector2 worldPos, Color col, float growDuration = -1f)
     {
         Vector2 uv = WorldToUV(worldPos);
         Vector2 c = new Vector2(0.5f, 0.5f);
@@ -76,7 +80,19 @@ public class BubbleLiquidSites2D : MonoBehaviour
         uv += dir * siteFromEdgePush;
 
         if (sites.Count >= maxSites) sites.RemoveAt(0);
-        sites.Add(new Site { uv = uv, vel = dir * 0.1f, col = col, radius = initRadius });
+
+        float duration = growDuration > 0f ? growDuration : defaultGrowDuration;
+        duration = Mathf.Max(0.01f, duration);
+
+        sites.Add(new Site {
+            uv = uv,
+            vel = dir * initialDrift,
+            col = col,
+            radius = 0f,
+            targetRadius = Mathf.Max(0.001f, initRadius),
+            age = 0f,
+            growDuration = duration
+        });
         SyncToMat();
     }
 
@@ -100,8 +116,13 @@ public class BubbleLiquidSites2D : MonoBehaviour
         for (int i = 0; i < sites.Count; i++)
         {
             var s = sites[i];
+            s.age += dt;
+            float growT = s.growDuration <= 0f ? 1f : Mathf.Clamp01(s.age / s.growDuration);
+            s.radius = Mathf.Lerp(0f, s.targetRadius, growT);
             Vector2 a = (c - s.uv) * attractK;
-            s.vel = (s.vel + a * dt + Random.insideUnitCircle * jitter * dt) * damp;
+            float ageFactor = Mathf.Clamp01(s.age / Mathf.Max(0.001f, s.growDuration));
+            Vector2 noise = Random.insideUnitCircle * (jitter * ageFactor) * dt;
+            s.vel = (s.vel + a * dt + noise) * damp;
             s.uv = s.uv + s.vel * dt;
             // 枠内にクランプ
             s.uv = Vector2.Min(Vector2.one * 0.98f, Vector2.Max(Vector2.one * 0.02f, s.uv));
