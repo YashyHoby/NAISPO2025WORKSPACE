@@ -19,6 +19,16 @@ public class HeartVisual : MonoBehaviour
     [Header("マテリアル設定")]
     public Material baseMaterial;
 
+    [Header("ゼリー表現")]
+    [Range(0f, 0.5f)] public float smoothness = 0.1f;
+    [Range(0f, 0.1f)] public float outlineWidth = 0.01f;
+    public Color outlineColor = Color.black;
+    [Range(0f, 1f)] public float refraction = 0.1f;
+    public Color specularColor = new Color(1,1,1,0.5f);
+    [Range(1f, 100f)] public float shininess = 20f;
+    public Color fresnelColor = new Color(1,1,1,0.1f);
+    [Range(0.1f, 10f)] public float fresnelPower = 2.0f;
+
     Material        mat;
     Renderer        rend;
     MeshFilter      meshFilter;
@@ -193,6 +203,16 @@ public class HeartVisual : MonoBehaviour
         mat.SetFloat("_Radius",    radius);
         mat.SetColor("_Tint",      color);
         mat.SetFloat("_ShapeType", (float)shapeType);
+
+        // Pass Jelly parameters to the shader
+        mat.SetFloat("_Smoothness",    smoothness);
+        mat.SetFloat("_OutlineWidth",  outlineWidth);
+        mat.SetColor("_OutlineColor",  outlineColor);
+        mat.SetFloat("_Refraction",    refraction);
+        mat.SetColor("_SpecularColor", specularColor);
+        mat.SetFloat("_Shininess",     shininess);
+        mat.SetColor("_FresnelColor",  fresnelColor);
+        mat.SetFloat("_FresnelPower",  fresnelPower);
     }
 
     public int ApplyProceduralShape(ProceduralShapeParameters parameters)
@@ -209,12 +229,14 @@ public class HeartVisual : MonoBehaviour
         if (vertexCount <= 0)
         {
             BuildCircleMesh(parameters);
+            if (mat != null) mat.SetFloat("_IsCircle", 1.0f);
             lastWasCircle = true;
             lastAppliedVertexCount = 0;
             return 0;
         }
 
         BuildPolygonMesh(vertexCount, parameters);
+        if (mat != null) mat.SetFloat("_IsCircle", 0.0f);
         lastWasCircle = false;
         lastAppliedVertexCount = vertexCount;
         return vertexCount;
