@@ -204,7 +204,7 @@ public class HeartAbsorber2D : MonoBehaviour
 
     IEnumerator AbsorbHeartRoutine(HeartPhysics heart, Collider2D otherCollider)
     {
-        var heartTransform = heart.transform;
+		var heartTransform = heart != null ? heart.transform : null;
         var rb = heart.GetComponent<Rigidbody2D>();
         var heartVisual = heart.GetComponent<HeartVisual>();
         Color heartColor = heartVisual != null ? heartVisual.color : Color.white;
@@ -230,27 +230,42 @@ public class HeartAbsorber2D : MonoBehaviour
             rb.linearVelocity = Vector2.zero;
         }
 
-        Vector3 startPos = heartTransform.position;
-        Vector3 anchor = new Vector3(contactPoint.x, contactPoint.y, heartTransform.position.z);
-        Vector3 center = new Vector3(transform.position.x, transform.position.y, heartTransform.position.z);
+		if (heartTransform == null)
+		{
+			yield break;
+		}
+
+		Vector3 startPos = heartTransform.position;
+		Vector3 anchor = new Vector3(contactPoint.x, contactPoint.y, heartTransform.position.z);
+		Vector3 center = new Vector3(transform.position.x, transform.position.y, heartTransform.position.z);
         Vector3 targetPos = Vector3.Lerp(anchor, center, Mathf.Clamp01(absorbAnchorInward));
         Vector3 startScale = heartTransform.localScale;
         Vector3 targetScale = startScale * Mathf.Max(0.01f, absorbScaleFactor);
 
         float timer = 0f;
         float duration = Mathf.Max(0.01f, absorbDuration);
-        while (timer < duration)
+		while (timer < duration)
         {
+			if (heart == null || heartTransform == null)
+			{
+				yield break;
+			}
             float t = timer / duration;
             float eased = absorbEase != null ? absorbEase.Evaluate(t) : t;
-            heartTransform.position = Vector3.Lerp(startPos, targetPos, eased);
-            heartTransform.localScale = Vector3.Lerp(startScale, targetScale, eased);
+			if (heartTransform != null)
+			{
+				heartTransform.position = Vector3.Lerp(startPos, targetPos, eased);
+				heartTransform.localScale = Vector3.Lerp(startScale, targetScale, eased);
+			}
             timer += Time.deltaTime;
             yield return null;
         }
 
-        Destroy(heart.gameObject);
-        absorbingIds.Remove(heart.GetInstanceID());
+		if (heart != null)
+		{
+			Destroy(heart.gameObject);
+			absorbingIds.Remove(heart.GetInstanceID());
+		}
 
         capturedColors.Add(heartColor);
 

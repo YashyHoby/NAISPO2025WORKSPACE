@@ -12,6 +12,13 @@ public class HeartVisual : MonoBehaviour
     public Color     color     = Color.white;
     public float     radius    = 0.6f;
 
+    [Header("角丸設定")]
+    public bool  cornerRoundingEnabled = true;
+    [Range(60f, 179f)] public float cornerAngleThresholdDeg = 150f; // これ未満を角丸
+    [Range(0.01f, 0.25f)] public float cornerRadiusFraction = 0.10f; // エッジ長比
+    [Range(2, 6)] public int cornerSegments = 3; // 円弧分割数
+    [Range(0f, 1f)] public float roundingIrregularityScale = 0.35f; // 角丸時はノイズを弱める
+
     [Header("参照（任意）")]
     public HeartProfile profile;
     public HeartAgent   agent;
@@ -436,8 +443,122 @@ public class HeartVisual : MonoBehaviour
             AppendEdgeVertices(counts, halfWidth, halfHeight, p);
         }
 
+        // まずポストプロセス（不規則ノイズ・回転等）。角丸時はノイズを弱める。
         ApplyPostProcess(vertexScratch, p);
+
+        // 角丸を適用（必要時）
+        if (cornerRoundingEnabled && vertexScratch.Count >= 3)
+        {
+            ApplyCornerRounding(vertexScratch, cornerAngleThresholdDeg, cornerRadiusFraction, cornerSegments);
+        }
+
+        // 最終的にCCWを保証
         EnsureCounterClockwise(vertexScratch);
+    }
+
+    // 角丸処理：閾値より鋭い凸角を幾何学的フィレットで置換する
+    void ApplyCornerRounding(List<Vector2> buffer, float thresholdDeg, float radiusFrac, int segments)
+    {
+        const int maxVertices = 96; // 頂点上限で暴走防止
+        int n = buffer.Count;
+        if (n < 3) return;
+
+        List<Vector2> result = new List<Vector2>(Mathf.Min(n * 2, maxVertices));
+
+        for (int i = 0; i < n; i++)
+        {
+            Vector2 prev = buffer[(i - 1 + n) % n];
+            Vector2 curr = buffer[i];
+            Vector2 next = buffer[(i + 1) % n];
+
+            Vector2 dirIn  = (curr - prev); // prev -> curr（入）
+            Vector2 dirOut = (next - curr); // curr -> next（出）
+
+            float len1 = dirIn.magnitude;
+            float len2 = dirOut.magnitude;
+            if (len1 <= 1e-6f || len2 <= 1e-6f)
+            {
+                result.Add(curr);
+                continue;
+            }
+
+            Vector2 nIn  = dirIn  / len1;
+            Vector2 nOut = dirOut / len2;
+
+            // 凸角のみ対象（CCW前提で外積Z>0）
+            float crossZ = dirIn.x * dirOut.y - dirIn.y * dirOut.x;
+            float dot = Mathf.Clamp(Vector2.Dot(-nIn, nOut), -1f, 1f); // 頂点中心での入り/出の角度
+            float theta = Mathf.Acos(dot); // 内角（0..π）
+            float angleDeg = theta * Mathf.Rad2Deg;
+
+            bool isConvex = crossZ > 0f; // CCWポリゴンの凸
+            if (isConvex && angleDeg < thresholdDeg)
+            {
+                // 目標半径 r
+                float rTarget = Mathf.Clamp(Mathf.Min(len1, len2) * Mathf.Max(0.0001f, radiusFrac), 0.0025f, 0.25f);
+                float half = theta * 0.5f;
+                float tanHalf = Mathf.Tan(half);
+                if (tanHalf < 1e-4f)
+                {
+                    result.Add(curr);
+                }
+                else
+                {
+                    // エッジ上の切り取り距離 a = r / tan(theta/2)
+                    float a = Mathf.Min(len1, len2, rTarget / tanHalf);
+                    Vector2 pStart = curr - nIn  * a; // 入り辺を戻る
+                    Vector2 pEnd   = curr + nOut * a; // 出辺に進む
+
+                    // 円弧中心: 内角二等分線方向に r / sin(theta/2) だけ移動
+                    Vector2 bis = (-nIn + nOut); // 頂点から内角二等分線
+                    float bisLen = bis.magnitude;
+                    if (bisLen < 1e-5f)
+                    {
+                        // 直線に近い場合は単純補間
+                        result.Add(pStart);
+                        result.Add((pStart + pEnd) * 0.5f);
+                        result.Add(pEnd);
+                    }
+                    else
+                    {
+                        bis /= bisLen;
+                        float sinHalf = Mathf.Sin(half);
+                        float radius = Mathf.Min(rTarget, a * tanHalf); // 安全な半径
+                        float distToCenter = radius / Mathf.Max(1e-4f, sinHalf);
+                        Vector2 center = curr + bis * distToCenter;
+
+                        // 円弧を pStart -> pEnd で分割
+                        int seg = Mathf.Clamp(segments, 2, 6);
+                        Vector2 vStart = pStart - center;
+                        Vector2 vEnd   = pEnd   - center;
+                        float ang0 = Mathf.Atan2(vStart.y, vStart.x);
+                        float ang1 = Mathf.Atan2(vEnd.y,   vEnd.x);
+                        float delta = Mathf.DeltaAngle(ang0 * Mathf.Rad2Deg, ang1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+
+                        for (int s = 0; s <= seg; s++)
+                        {
+                            float t = (float)s / seg;
+                            float aRad = ang0 + delta * t;
+                            Vector2 p = center + new Vector2(Mathf.Cos(aRad), Mathf.Sin(aRad)) * (vStart.magnitude);
+                            result.Add(p);
+                            if (result.Count >= maxVertices) break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                result.Add(curr);
+            }
+
+            if (result.Count >= maxVertices) break;
+        }
+
+        if (result.Count >= 3)
+        {
+            buffer.Clear();
+            buffer.AddRange(result);
+        }
     }
 
     void GenerateTriangleVertices(int count, ProceduralShapeParameters p)
@@ -507,10 +628,23 @@ public class HeartVisual : MonoBehaviour
     void AppendEdgeVertices(int[] counts, float halfWidth, float halfHeight, ProceduralShapeParameters p)
     {
         float seedBase = p.seed * 13.37f + halfWidth * 1.91f;
-        AppendEdge(vertexScratch, counts[0], new Vector2( halfWidth,  halfHeight), new Vector2(-halfWidth,  halfHeight), seedBase + 1f, p.irregularity);
-        AppendEdge(vertexScratch, counts[1], new Vector2(-halfWidth,  halfHeight), new Vector2(-halfWidth, -halfHeight), seedBase + 2f, p.irregularity);
-        AppendEdge(vertexScratch, counts[2], new Vector2(-halfWidth, -halfHeight), new Vector2( halfWidth, -halfHeight), seedBase + 3f, p.irregularity);
-        AppendEdge(vertexScratch, counts[3], new Vector2( halfWidth, -halfHeight), new Vector2( halfWidth,  halfHeight), seedBase + 4f, p.irregularity);
+
+        // コーナー座標
+        Vector2 topRight    = new Vector2( halfWidth,  halfHeight);
+        Vector2 topLeft     = new Vector2(-halfWidth,  halfHeight);
+        Vector2 bottomLeft  = new Vector2(-halfWidth, -halfHeight);
+        Vector2 bottomRight = new Vector2( halfWidth, -halfHeight);
+
+        // 角を含めて時計回り（後でCCW保証）ではなく、最初からCCWで追加
+        // CCW: topRight -> topLeft -> bottomLeft -> bottomRight
+        vertexScratch.Add(topRight);
+        AppendEdge(vertexScratch, counts[0], topRight, topLeft, seedBase + 1f, p.irregularity);
+        vertexScratch.Add(topLeft);
+        AppendEdge(vertexScratch, counts[1], topLeft, bottomLeft, seedBase + 2f, p.irregularity);
+        vertexScratch.Add(bottomLeft);
+        AppendEdge(vertexScratch, counts[2], bottomLeft, bottomRight, seedBase + 3f, p.irregularity);
+        vertexScratch.Add(bottomRight);
+        AppendEdge(vertexScratch, counts[3], bottomRight, topRight, seedBase + 4f, p.irregularity);
     }
 
     void AppendEdge(List<Vector2> buffer, int count, Vector2 start, Vector2 end, float seed, float irregularity)
@@ -536,6 +670,10 @@ public class HeartVisual : MonoBehaviour
         float sin = Mathf.Sin(angle);
         float maxRadius = 0.5f;
         float irregularAmp = Mathf.Lerp(0.02f, 0.18f, p.irregularity);
+        if (cornerRoundingEnabled)
+        {
+            irregularAmp *= Mathf.Clamp01(roundingIrregularityScale);
+        }
         float seedBase = p.seed * 17.1717f;
 
         for (int i = 0; i < buffer.Count; i++)
