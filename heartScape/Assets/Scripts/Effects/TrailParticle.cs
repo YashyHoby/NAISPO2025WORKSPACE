@@ -242,4 +242,17 @@ public class TrailParticle : MonoBehaviour
     {
         ResetParticle();
     }
+    
+    void OnDestroy()
+    {
+        // メモリリークを防ぐためのクリーンアップ
+        ResetParticle();
+        
+        // フラグメント配列をクリア
+        if (fragments != null)
+        {
+            System.Array.Clear(fragments, 0, fragments.Length);
+            fragments = null;
+        }
+    }
 }

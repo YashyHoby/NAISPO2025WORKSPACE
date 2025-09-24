@@ -124,6 +124,18 @@ public class HeartTrailSystem : MonoBehaviour
         UpdateAgentTrails();
         UpdateActiveParticles();
         CleanupInactiveAgents();
+        
+        // メモリリークを防ぐための定期的なクリーンアップ
+        if (Time.frameCount % 60 == 0) // 1秒ごと
+        {
+            CleanupMemoryLeaks();
+        }
+    }
+    
+    void OnDestroy()
+    {
+        // パーティクルプールをクリーンアップ
+        CleanupExistingPool();
     }
     
     /// <summary>
@@ -137,15 +149,18 @@ public class HeartTrailSystem : MonoBehaviour
             return;
         }
         
+        // 既存のプールをクリーンアップ
+        CleanupExistingPool();
+        
         // プールコンテナを作成
         GameObject poolContainer = new GameObject("TrailParticlePool");
         poolContainer.transform.SetParent(transform);
-        poolContainer.hideFlags = HideFlags.DontSaveInEditor;
+        poolContainer.hideFlags = HideFlags.DontSaveInEditor | HideFlags.HideInHierarchy;
         
         for (int i = 0; i < maxTrailParticles; i++)
         {
             GameObject particleObj = Instantiate(trailParticlePrefab, poolContainer.transform);
-            particleObj.hideFlags = HideFlags.DontSaveInEditor;
+            particleObj.hideFlags = HideFlags.DontSaveInEditor | HideFlags.HideInHierarchy;
             
             TrailParticle particle = particleObj.GetComponent<TrailParticle>();
             if (particle == null)
@@ -155,6 +170,61 @@ public class HeartTrailSystem : MonoBehaviour
             
             particleObj.SetActive(false);
             particlePool.Enqueue(particle);
+        }
+    }
+    
+    /// <summary>
+    /// 既存のパーティクルプールをクリーンアップ
+    /// </summary>
+    void CleanupExistingPool()
+    {
+        // 既存のプールコンテナを探して削除
+        Transform existingPool = transform.Find("TrailParticlePool");
+        if (existingPool != null)
+        {
+            // アクティブなパーティクルをクリア
+            activeParticles.Clear();
+            particlePool.Clear();
+            
+            // 既存のプールを削除
+            if (Application.isPlaying)
+            {
+                Destroy(existingPool.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(existingPool.gameObject);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// メモリリークを防ぐためのクリーンアップ
+    /// </summary>
+    void CleanupMemoryLeaks()
+    {
+        // null参照を削除
+        for (int i = activeParticles.Count - 1; i >= 0; i--)
+        {
+            if (activeParticles[i] == null)
+            {
+                activeParticles.RemoveAt(i);
+            }
+        }
+        
+        // 古いエージェント参照をクリーンアップ
+        var agentsToRemove = new List<HeartAgent>();
+        foreach (var kvp in agentTrails)
+        {
+            if (kvp.Key == null)
+            {
+                agentsToRemove.Add(kvp.Key);
+            }
+        }
+        
+        foreach (var agent in agentsToRemove)
+        {
+            agentTrails.Remove(agent);
         }
     }
     
@@ -271,6 +341,8 @@ public class HeartTrailSystem : MonoBehaviour
                 // パーティクルをプールに戻す
                 if (particle != null)
                 {
+                    // パーティクルをリセットしてからプールに戻す
+                    particle.ResetParticle();
                     particle.gameObject.SetActive(false);
                     particlePool.Enqueue(particle);
                 }
@@ -434,29 +506,33 @@ public class HeartTrailSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// エージェントが破棄されるときの通知用
-    /// </summary>
-    public void OnAgentDestroyed(HeartAgent agent)
-    {
-        UnregisterAgent(agent);
-    }
-    
-    /// <summary>
-    /// 軌跡システムのリセット
+    /// 軌跡システムをリセット
     /// </summary>
     public void ResetTrailSystem()
     {
-        // 全てのアクティブパーティクルを非アクティブにしてプールに戻す
+        // アクティブなパーティクルを無効化
         foreach (var particle in activeParticles)
         {
             if (particle != null)
             {
                 particle.gameObject.SetActive(false);
-                particlePool.Enqueue(particle);
             }
         }
-        
         activeParticles.Clear();
+        
+        // エージェント軌跡をクリア
         agentTrails.Clear();
+        
+        // パーティクルプールを再初期化
+        CleanupExistingPool();
+        InitializeParticlePool();
+    }
+    
+    /// <summary>
+    /// エージェントが破棄されるときの通知用
+    /// </summary>
+    public void OnAgentDestroyed(HeartAgent agent)
+    {
+        UnregisterAgent(agent);
     }
 }

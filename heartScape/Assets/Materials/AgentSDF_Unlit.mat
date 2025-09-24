@@ -42,15 +42,24 @@ Material:
     m_Ints: []
     m_Floats:
     - _EnableExternalAlpha: 0
+    - _FresnelPower: 2.81
+    - _IsCircle: 1
+    - _OutlineWidth: 0.0088
     - _Pulse: 0.8428626
     - _Radius: 0.9150171
+    - _Refraction: 0.141
     - _ShapeType: 1
+    - _Shininess: 23
+    - _Smoothness: 0.106
     - _Soft: 0.02
     - _ZWrite: 0
     m_Colors:
     - _BoxSize: {r: 0.6, g: 0.6, b: 0, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _FresnelColor: {r: 1, g: 1, b: 1, a: 0.1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Tint: {r: 0.25, g: 1, b: 0.40764755, a: 1}
+    - _SpecularColor: {r: 1, g: 1, b: 1, a: 0.5}
+    - _Tint: {r: 0.24999997, g: 1, b: 0.40764752, a: 0.5176471}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
