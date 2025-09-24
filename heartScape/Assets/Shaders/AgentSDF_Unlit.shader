@@ -85,7 +85,7 @@
                 return o;
             }
 
-            // 疑似法線（ゼリーのうねり用）
+            // 疑似法線（ゼリーのうねり
             float3 ComputeFakeNormal(float2 uv, float pulse)
             {
                 float2 p = uv * 2.0 - 1.0;

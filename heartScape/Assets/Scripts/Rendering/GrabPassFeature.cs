@@ -17,6 +17,7 @@ public class GrabPassFeature : ScriptableRendererFeature
         }
 
         // This method is called before executing the render pass.
+        [System.Obsolete]
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             // Get a descriptor that matches the camera's color target.
@@ -31,15 +32,18 @@ public class GrabPassFeature : ScriptableRendererFeature
             ConfigureInput(ScriptableRenderPassInput.Color);
         }
 
+        [System.Obsolete]
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             // The source is the camera's color buffer, automatically provided by ConfigureInput.
+            #pragma warning disable CS0618 // Type or member is obsolete
             var source = renderingData.cameraData.renderer.cameraColorTargetHandle;
 
             CommandBuffer cmd = CommandBufferPool.Get(m_TextureName);
             
             // Blit from the source to our grab texture
             Blit(cmd, source, m_GrabTextureHandle);
+            #pragma warning restore CS0618 // Type or member is obsolete
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);

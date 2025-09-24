@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: BackgroundMaterial
+  m_Shader: {fileID: 4800000, guid: ca3992eb7da0e824ebe503dc0a930439, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap:
+    RenderType: Opaque
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _CausticsIntensity: 0.8428267
+    - _DepthFalloff: 2
+    - _DistortionStrength: 0.1285911
+    - _FresnelPower: 0.5
+    - _LightIntensity: 1.0714352
+    - _NoiseScale: 0
+    - _WaveScale: 0
+    - _WaveSpeed: 0.10356229
+    m_Colors:
+    - _AccentColor: {r: 0.22440127, g: 0.9505517, b: 0.31242514, a: 1}
+    - _MainColor: {r: 0.3575351, g: 0.54277086, b: 0.22912456, a: 1}
+    - _SecondColor: {r: 0.28864416, g: 0.36598894, b: 0.09677832, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

@@ -11,6 +11,23 @@ public class HeartVisual : MonoBehaviour
     public ShapeType shapeType = ShapeType.Circle;
     public Color     color     = Color.white;
     public float     radius    = 0.6f;
+    
+    [Header("色調整")]
+    [Tooltip("明度調整（0.0-2.0）")]
+    [Range(0.0f, 2.0f)]
+    public float brightnessMultiplier = 1.0f;
+    
+    [Tooltip("彩度調整（0.0-2.0）")]
+    [Range(0.0f, 2.0f)]
+    public float saturationMultiplier = 1.0f;
+    
+    [Tooltip("色相調整（-1.0-1.0）")]
+    [Range(-1.0f, 1.0f)]
+    public float hueShift = 0.0f;
+    
+    [Tooltip("透明度調整（0.0-1.0）")]
+    [Range(0.0f, 1.0f)]
+    public float alphaMultiplier = 1.0f;
 
     [Header("角丸設定")]
     public bool  cornerRoundingEnabled = true;
@@ -54,7 +71,9 @@ public class HeartVisual : MonoBehaviour
     readonly List<Vector2> vertexScratch = new List<Vector2>(16);
 
     int  lastAppliedVertexCount = -1;
+    #pragma warning disable CS0414 // The field is assigned but its value is never used
     bool lastWasCircle;
+    #pragma warning restore CS0414
 
     static readonly int[] VertexCycle =
     {
@@ -206,9 +225,12 @@ public class HeartVisual : MonoBehaviour
 
         if (mat == null) return;
 
+        // 色調整を適用
+        Color adjustedColor = ApplyColorAdjustments(color);
+
         mat.SetFloat("_Pulse",     pulse);
         mat.SetFloat("_Radius",    radius);
-        mat.SetColor("_Tint",      color);
+        mat.SetColor("_Tint",      adjustedColor);
         mat.SetFloat("_ShapeType", (float)shapeType);
 
         // Pass Jelly parameters to the shader
@@ -220,6 +242,34 @@ public class HeartVisual : MonoBehaviour
         mat.SetFloat("_Shininess",     shininess);
         mat.SetColor("_FresnelColor",  fresnelColor);
         mat.SetFloat("_FresnelPower",  fresnelPower);
+    }
+    
+    /// <summary>
+    /// 色調整を適用して調整された色を返す
+    /// </summary>
+    Color ApplyColorAdjustments(Color originalColor)
+    {
+        // RGBからHSVに変換
+        float h, s, v;
+        Color.RGBToHSV(originalColor, out h, out s, out v);
+        
+        // 色相調整
+        h = (h + hueShift) % 1.0f;
+        if (h < 0) h += 1.0f;
+        
+        // 彩度調整
+        s = Mathf.Clamp01(s * saturationMultiplier);
+        
+        // 明度調整
+        v = Mathf.Clamp01(v * brightnessMultiplier);
+        
+        // HSVからRGBに変換
+        Color adjustedColor = Color.HSVToRGB(h, s, v);
+        
+        // 透明度調整
+        adjustedColor.a = Mathf.Clamp01(originalColor.a * alphaMultiplier);
+        
+        return adjustedColor;
     }
 
     public int ApplyProceduralShape(ProceduralShapeParameters parameters)

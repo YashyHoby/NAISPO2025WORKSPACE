@@ -28,9 +28,9 @@ Shader "Hidden/MetaballThreshold"
 
       float4 Frag(VOut i):SV_Target{
         float3 col = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv).rgb;
-        float v = Luma(col); // ‰ÁŽZŒ‹‰Ê‚Ì–¾‚é‚³‚ðƒTƒCƒ“‘ã‚í‚è‚É
+        float v = Luma(col); // ï¿½ï¿½ï¿½Zï¿½ï¿½ï¿½Ê‚Ì–ï¿½ï¿½é‚³ï¿½ï¿½ï¿½Tï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         float body = smoothstep(_Thresh - 0.05, _Thresh + 0.05, v);
-        // ‹ß–TƒTƒ“ƒvƒ‹‚ÅŠÈˆÕƒGƒbƒW
+        // ï¿½ß–Tï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ÅŠÈˆÕƒGï¿½bï¿½W
         float3 dx = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex, i.uv + float2(_MainTex_TexelSize.x,0)).rgb;
         float3 dy = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex, i.uv + float2(0,_MainTex_TexelSize.y)).rgb;
         float g = abs(Luma(dx)-Luma(col)) + abs(Luma(dy)-Luma(col));
