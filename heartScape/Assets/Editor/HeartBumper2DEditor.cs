@@ -77,39 +77,62 @@ public class HeartBumper2DEditor : Editor
         EditorGUILayout.LabelField("ビジュアル演出調整", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
         
-        EditorGUILayout.LabelField("アニメーションプリセット", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("ゼリー風アニメーションプリセット", EditorStyles.boldLabel);
+        
+        // 第1行：基本的なゼリー
         EditorGUILayout.BeginHorizontal();
         
-        if (GUILayout.Button("ぷるぷる"))
+        if (GUILayout.Button("柔らかゼリー"))
         {
             bumper.visualScaleMultiplier = 1.2f;
-            bumper.visualDuration = 0.8f;
-            bumper.visualShakeDamping = 2f;
-            bumper.visualShakeFrequency = 6f;
+            bumper.visualDuration = 1.2f;
+            bumper.visualShakeDamping = 1.5f;
+            bumper.visualShakeFrequency = 5f;
         }
         
-        if (GUILayout.Button("ぽよぽよ"))
+        if (GUILayout.Button("標準ゼリー"))
         {
             bumper.visualScaleMultiplier = 1.15f;
-            bumper.visualDuration = 0.6f;
-            bumper.visualShakeDamping = 3f;
-            bumper.visualShakeFrequency = 8f;
+            bumper.visualDuration = 0.8f;
+            bumper.visualShakeDamping = 2.5f;
+            bumper.visualShakeFrequency = 7f;
         }
         
-        if (GUILayout.Button("ぶるぶる"))
+        if (GUILayout.Button("硬めゼリー"))
         {
             bumper.visualScaleMultiplier = 1.1f;
-            bumper.visualDuration = 0.4f;
-            bumper.visualShakeDamping = 5f;
-            bumper.visualShakeFrequency = 12f;
+            bumper.visualDuration = 0.5f;
+            bumper.visualShakeDamping = 4f;
+            bumper.visualShakeFrequency = 10f;
         }
         
-        if (GUILayout.Button("ゆったり"))
+        EditorGUILayout.EndHorizontal();
+        
+        // 第2行：特殊なゼリー
+        EditorGUILayout.BeginHorizontal();
+        
+        if (GUILayout.Button("ぷるぷるゼリー"))
+        {
+            bumper.visualScaleMultiplier = 1.25f;
+            bumper.visualDuration = 1.5f;
+            bumper.visualShakeDamping = 1.2f;
+            bumper.visualShakeFrequency = 4f;
+        }
+        
+        if (GUILayout.Button("ブルブルゼリー"))
+        {
+            bumper.visualScaleMultiplier = 1.08f;
+            bumper.visualDuration = 0.6f;
+            bumper.visualShakeDamping = 3f;
+            bumper.visualShakeFrequency = 15f;
+        }
+        
+        if (GUILayout.Button("ゆらゆらゼリー"))
         {
             bumper.visualScaleMultiplier = 1.3f;
-            bumper.visualDuration = 1.0f;
-            bumper.visualShakeDamping = 1.5f;
-            bumper.visualShakeFrequency = 4f;
+            bumper.visualDuration = 2.0f;
+            bumper.visualShakeDamping = 1f;
+            bumper.visualShakeFrequency = 3f;
         }
         
         EditorGUILayout.EndHorizontal();

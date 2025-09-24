@@ -24,13 +24,13 @@ namespace HeartScape.Interaction.Bumper
         public float visualScaleMultiplier = 1.15f;
 
         [Tooltip("振動演出が収束するまでの時間（秒）。")]
-        public float visualDuration = 0.6f;
+        public float visualDuration = 0.8f;
 
         [Tooltip("振動演出の減衰係数です。大きいほど早く収束します。")]
-        public float visualShakeDamping = 3f;
+        public float visualShakeDamping = 2.5f;
 
         [Tooltip("振動演出の振動数（Hz）です。")]
-        public float visualShakeFrequency = 8f;
+        public float visualShakeFrequency = 7f;
         
         [Header("長方形コライダー設定")]
         [Tooltip("長方形の幅")]
@@ -210,39 +210,39 @@ namespace HeartScape.Interaction.Bumper
         {
             float elapsed = 0f;
             Vector3 originalScale = baseScale;
-            Vector3 targetScale = originalScale * visualScaleMultiplier;
             
-            // 拡大フェーズ（30%）と収束フェーズ（70%）に分ける
-            float expandPhase = visualDuration * 0.3f;
-            float shrinkPhase = visualDuration * 0.7f;
+            // ゼリー風の振動パラメータ
+            float jellyFrequency = visualShakeFrequency;
+            float jellyDamping = visualShakeDamping;
+            float jellyAmplitude = (visualScaleMultiplier - 1.0f);
 
             while (elapsed < visualDuration)
             {
                 float progress = elapsed / visualDuration;
-                Vector3 currentScale;
                 
-                if (elapsed < expandPhase)
+                // ゼリー風の減衰振動
+                float damping = Mathf.Exp(-jellyDamping * progress);
+                
+                // X軸とY軸で異なる振動（ゼリーらしい非対称な動き）
+                float xShake = Mathf.Sin(elapsed * jellyFrequency * Mathf.PI * 2f) * damping * jellyAmplitude;
+                float yShake = Mathf.Sin(elapsed * jellyFrequency * 1.3f * Mathf.PI * 2f + 0.5f) * damping * jellyAmplitude * 0.7f;
+                
+                // ゼリーの反発効果（最初に少し縮んでから拡大）
+                float rebound = 1.0f;
+                if (progress < 0.1f)
                 {
-                    // 拡大フェーズ：滑らかに拡大
-                    float expandProgress = elapsed / expandPhase;
-                    float easeOut = 1f - Mathf.Pow(1f - expandProgress, 3f); // easeOutCubic
-                    currentScale = Vector3.Lerp(originalScale, targetScale, easeOut);
+                    float reboundProgress = progress / 0.1f;
+                    rebound = 1.0f - (1.0f - reboundProgress) * 0.1f; // 最初に少し縮む
                 }
-                else
-                {
-                    // 収束フェーズ：振動しながら元のサイズに戻る
-                    float shrinkProgress = (elapsed - expandPhase) / shrinkPhase;
-                    float easeInOut = shrinkProgress < 0.5f 
-                        ? 2f * shrinkProgress * shrinkProgress 
-                        : 1f - Mathf.Pow(-2f * shrinkProgress + 2f, 2f) / 2f; // easeInOutQuad
-                    
-                    // 振動効果
-                    float damping = Mathf.Exp(-visualShakeDamping * shrinkProgress);
-                    float shake = Mathf.Sin(shrinkProgress * visualShakeFrequency * Mathf.PI * 2f) * damping;
-                    
-                    Vector3 baseScale = Vector3.Lerp(targetScale, originalScale, easeInOut);
-                    currentScale = baseScale + Vector3.one * shake * 0.05f;
-                }
+                
+                // 最終的なスケール計算
+                Vector3 currentScale = originalScale * rebound;
+                currentScale.x += xShake;
+                currentScale.y += yShake;
+                
+                // 最小スケールを制限（負の値を防ぐ）
+                currentScale.x = Mathf.Max(currentScale.x, originalScale.x * 0.8f);
+                currentScale.y = Mathf.Max(currentScale.y, originalScale.y * 0.8f);
 
                 if (visualTarget != null)
                     visualTarget.localScale = currentScale;
@@ -251,13 +251,24 @@ namespace HeartScape.Interaction.Bumper
                 yield return null;
             }
 
-            // 最終的に元のスケールに戻す（滑らかに）
+            // 最終的に元のスケールに戻す（ゼリーらしい弾性）
             float finalTime = 0f;
+            float finalDuration = 0.2f;
             Vector3 currentFinalScale = visualTarget != null ? visualTarget.localScale : originalScale;
-            while (finalTime < 0.1f)
+            
+            while (finalTime < finalDuration)
             {
-                float t = finalTime / 0.1f;
-                Vector3 smoothScale = Vector3.Lerp(currentFinalScale, originalScale, t);
+                float t = finalTime / finalDuration;
+                
+                // ゼリーらしい弾性のあるイージング
+                float elasticT = t < 0.5f 
+                    ? 2f * t * t 
+                    : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+                
+                // 最後の小さな振動
+                float finalShake = Mathf.Sin(t * 15f) * (1f - t) * 0.02f;
+                Vector3 smoothScale = Vector3.Lerp(currentFinalScale, originalScale, elasticT);
+                smoothScale += Vector3.one * finalShake;
                 
                 if (visualTarget != null)
                     visualTarget.localScale = smoothScale;
