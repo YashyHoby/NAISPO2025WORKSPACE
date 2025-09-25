@@ -19,11 +19,11 @@ public class SimpleFireworkSystem : MonoBehaviour
     [Tooltip("花火の生存時間")]
     [Range(0.5f, 5f)]
     public float lifetime = 2f;
-    
+
     [Tooltip("花火のサイズ")]
     [Range(0.01f, 1f)]
     public float particleSize = 0.1f;
-    
+
     [Header("色設定")]
     [Tooltip("パーティクルの明度調整")]
     [Range(0f, 3f)]
