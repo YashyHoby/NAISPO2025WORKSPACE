@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace HeartScape.Interaction.Bumper
 {
@@ -91,6 +94,11 @@ namespace HeartScape.Interaction.Bumper
         private float collisionTime;
         private bool isCollisionActive;
         private float originalPulseIntensity;
+        private Texture2D whiteTexture;
+        private Sprite whiteSprite;
+        
+        // パブリックプロパティ
+        public Material SlimeMaterial => slimeMaterial;
 
         void Awake()
         {
@@ -123,16 +131,93 @@ namespace HeartScape.Interaction.Bumper
 
         void OnValidate()
         {
-            // エディターでパラメータが変更された時に自動更新
-            if (Application.isPlaying && slimeMaterial != null && autoUpdateMaterial && !protectMaterialSettings)
+            // OnValidateでは何もしない（エラーを避けるため）
+            // 手動で「即座に更新」ボタンを使用してください
+        }
+
+        public void InitializeForEditor()
+        {
+#if UNITY_EDITOR
+            // エディター時の安全な初期化
+            if (spriteRenderer == null)
             {
-                ApplySlimeParameters();
-                UpdateVisualSize();
+                spriteRenderer = GetComponent<SpriteRenderer>();
+                if (spriteRenderer == null)
+                {
+                    spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+                }
             }
-            else if (Application.isPlaying)
+
+            // スプライトの設定
+            if (spriteRenderer.sprite == null)
             {
-                // 保護モードでもサイズは更新
-                UpdateVisualSize();
+                CreateAndSetWhiteSprite();
+            }
+
+            // マテリアルの設定（エディター時はsharedMaterialを使用）
+            CreateOrGetSlimeMaterial();
+
+            // パラメータを適用
+            if (slimeMaterial != null)
+            {
+                ApplySlimeParametersForced();
+            }
+
+            // サイズを更新
+            UpdateVisualSizeEditor();
+#endif
+        }
+
+        public void UpdateVisualSizeEditor()
+        {
+#if UNITY_EDITOR
+            if (spriteRenderer == null) return;
+
+            // エディター時の安全なサイズ更新
+            try
+            {
+                spriteRenderer.size = new Vector2(rectWidth, rectHeight);
+                transform.localScale = Vector3.one;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Could not update sprite size in editor: {e.Message}");
+            }
+#endif
+        }
+
+        void CreateOrGetSlimeMaterial()
+        {
+            // 現在のマテリアルをチェック
+            Material currentMaterial = Application.isPlaying ? spriteRenderer.material : spriteRenderer.sharedMaterial;
+            
+            if (currentMaterial != null && currentMaterial.shader != null && currentMaterial.shader.name == "Custom/SlimeRectangle")
+            {
+                // 既に適切なマテリアルがある場合
+                slimeMaterial = currentMaterial;
+                return;
+            }
+            
+            // 新しいマテリアルを作成
+            Shader slimeShader = Shader.Find("Custom/SlimeRectangle");
+            if (slimeShader != null)
+            {
+                slimeMaterial = new Material(slimeShader);
+                slimeMaterial.name = $"SlimeMaterial_{gameObject.name}_{gameObject.GetInstanceID()}";
+                
+                // エディター時とランタイム時で適切な設定方法を使用
+                if (Application.isPlaying)
+                {
+                    spriteRenderer.material = slimeMaterial;
+                }
+                else
+                {
+                    spriteRenderer.sharedMaterial = slimeMaterial;
+                }
+            }
+            else
+            {
+                Debug.LogError("SlimeRectangle shader not found!");
             }
         }
 
@@ -148,48 +233,42 @@ namespace HeartScape.Interaction.Bumper
             // 白いスプライトを作成・設定
             CreateAndSetWhiteSprite();
 
-            // スライムマテリアルを作成（インスタンス化）
-            Shader slimeShader = Shader.Find("Custom/SlimeRectangle");
-            if (slimeShader != null)
-            {
-                // 既存のマテリアルがある場合はそれをベースに
-                if (spriteRenderer.material != null && spriteRenderer.material.shader == slimeShader)
-                {
-                    slimeMaterial = new Material(spriteRenderer.material);
-                }
-                else
-                {
-                    slimeMaterial = new Material(slimeShader);
-                }
-                
-                slimeMaterial.name = $"SlimeMaterial_{gameObject.GetInstanceID()}";
-                spriteRenderer.material = slimeMaterial;
-            }
-            else
-            {
-                Debug.LogError("SlimeRectangle shader not found!");
-            }
+            // スライムマテリアルを作成
+            CreateOrGetSlimeMaterial();
 
             originalPulseIntensity = pulseIntensity;
         }
 
         void CreateAndSetWhiteSprite()
         {
-            // 白いテクスチャを作成
-            Texture2D whiteTexture = new Texture2D(64, 64);
-            Color[] pixels = new Color[64 * 64];
-            for (int i = 0; i < pixels.Length; i++)
+            // 既存のテクスチャがある場合は再利用
+            if (whiteTexture == null)
             {
-                pixels[i] = Color.white;
+                // 白いテクスチャを作成
+                whiteTexture = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+                whiteTexture.name = $"WhiteTexture_{gameObject.GetInstanceID()}";
+                Color[] pixels = new Color[64 * 64];
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    pixels[i] = Color.white;
+                }
+                whiteTexture.SetPixels(pixels);
+                whiteTexture.Apply(false, false);
             }
-            whiteTexture.SetPixels(pixels);
-            whiteTexture.Apply();
 
-            // スプライトを作成
-            Sprite whiteSprite = Sprite.Create(whiteTexture, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64);
+            // 既存のスプライトがある場合は再利用
+            if (whiteSprite == null)
+            {
+                // スプライトを作成
+                whiteSprite = Sprite.Create(whiteTexture, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64);
+                whiteSprite.name = $"WhiteSprite_{gameObject.GetInstanceID()}";
+            }
             
             // SpriteRendererに設定
-            spriteRenderer.sprite = whiteSprite;
+            if (spriteRenderer.sprite != whiteSprite)
+            {
+                spriteRenderer.sprite = whiteSprite;
+            }
         }
 
         public void UpdateVisualSize()
@@ -205,19 +284,19 @@ namespace HeartScape.Interaction.Bumper
 
         public void ApplySlimeParameters()
         {
-            // 保護モードの場合は更新しない
-            if (protectMaterialSettings)
-            {
-                Debug.Log("Material settings are protected. Skipping parameter update.");
-                return;
-            }
-            
+            ApplySlimeParametersForced();
+        }
+        
+        public void ApplySlimeParametersForced()
+        {
             if (slimeMaterial == null) 
             {
                 Debug.LogWarning("SlimeMaterial is null! Trying to reinitialize...");
                 InitializeVisual();
                 if (slimeMaterial == null) return;
             }
+            
+            Debug.Log($"Applying parameters: OuterThickness={outerThickness}, OuterAlpha={outerAlpha}, InnerThickness={innerThickness}");
 
             // 基本色とサイズ
             slimeMaterial.SetColor("_SlimeColor", slimeColor);
@@ -373,11 +452,122 @@ namespace HeartScape.Interaction.Bumper
             }
         }
 
+        /// <summary>
+        /// 色を設定（メイン、外郭、内郭を一括設定）
+        /// </summary>
+        public void SetSlimeColors(Color main, Color outer, Color inner)
+        {
+            slimeColor = main;
+            outerColor = outer;
+            innerColor = inner;
+            
+            // 強制的にマテリアルを更新
+            ApplySlimeParameters();
+        }
+
+        /// <summary>
+        /// メイン色のみを設定
+        /// </summary>
+        public void SetMainColor(Color color)
+        {
+            slimeColor = color;
+            
+            // 強制的にマテリアルを更新
+            ApplySlimeParameters();
+        }
+
+        /// <summary>
+        /// 色相を変更（明度・彩度は維持）
+        /// </summary>
+        public void SetHue(float hue)
+        {
+            Color.RGBToHSV(slimeColor, out float h, out float s, out float v);
+            slimeColor = Color.HSVToRGB(hue, s, v);
+            
+            // 外郭と内郭も同じ色相に調整
+            Color.RGBToHSV(outerColor, out h, out s, out v);
+            outerColor = Color.HSVToRGB(hue, s * 0.8f, v * 0.6f);
+            
+            Color.RGBToHSV(innerColor, out h, out s, out v);
+            innerColor = Color.HSVToRGB(hue, s * 1.2f, v * 1.1f);
+            
+            // 強制的にマテリアルを更新
+            ApplySlimeParameters();
+        }
+
+        /// <summary>
+        /// ランダムな色を設定
+        /// </summary>
+        public void SetRandomColors()
+        {
+            float hue = Random.Range(0f, 1f);
+            float saturation = Random.Range(0.6f, 1.0f);
+            float brightness = Random.Range(0.5f, 0.9f);
+            
+            slimeColor = Color.HSVToRGB(hue, saturation, brightness);
+            outerColor = Color.HSVToRGB(hue, saturation * 0.8f, brightness * 0.6f);
+            innerColor = Color.HSVToRGB(hue, saturation * 1.2f, Mathf.Min(brightness * 1.1f, 1.0f));
+            
+            // 強制的にマテリアルを更新
+            ApplySlimeParameters();
+        }
+
+        /// <summary>
+        /// 全ての設定を即座に反映
+        /// </summary>
+        public void ForceUpdateAll()
+        {
+            InitializeForEditor();
+            ApplySlimeParametersForced();
+            UpdateVisualSizeEditor();
+            
+#if UNITY_EDITOR
+            EditorUtility.SetDirty(this);
+            UnityEditor.SceneView.RepaintAll();
+#endif
+        }
+
         void OnDestroy()
         {
+            // マテリアルのクリーンアップ
             if (slimeMaterial != null)
             {
-                DestroyImmediate(slimeMaterial);
+                if (Application.isPlaying)
+                {
+                    Destroy(slimeMaterial);
+                }
+                else
+                {
+                    DestroyImmediate(slimeMaterial);
+                }
+                slimeMaterial = null;
+            }
+            
+            // テクスチャとスプライトのクリーンアップ
+            if (whiteSprite != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(whiteSprite);
+                }
+                else
+                {
+                    DestroyImmediate(whiteSprite);
+                }
+                whiteSprite = null;
+            }
+            
+            if (whiteTexture != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(whiteTexture);
+                }
+                else
+                {
+                    DestroyImmediate(whiteTexture);
+                }
+                whiteTexture = null;
             }
         }
     }

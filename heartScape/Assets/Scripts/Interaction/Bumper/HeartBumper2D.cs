@@ -63,11 +63,8 @@ namespace HeartScape.Interaction.Bumper
 
         void OnValidate()
         {
-            // コライダーサイズのみ更新
-            if (Application.isPlaying)
-            {
-                UpdateColliderSize();
-            }
+            // OnValidateでは何もしない（エラーを避けるため）
+            // 手動で「パラメータ更新」ボタンを使用してください
         }
 
         void InitializeBumper()
@@ -133,15 +130,15 @@ namespace HeartScape.Interaction.Bumper
             slimeVisual.rectHeight = colliderHeight;
         }
 
-        void UpdateColliderSize()
+        public void UpdateColliderSize()
         {
             if (boxCollider != null)
             {
                 boxCollider.size = new Vector2(colliderWidth, colliderHeight);
             }
             
-            // ビジュアルのサイズも同期
-            if (slimeVisual != null)
+            // ビジュアルのサイズも同期（実行時のみ）
+            if (slimeVisual != null && Application.isPlaying)
             {
                 slimeVisual.rectWidth = colliderWidth;
                 slimeVisual.rectHeight = colliderHeight;
