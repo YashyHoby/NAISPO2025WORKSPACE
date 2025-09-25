@@ -46,6 +46,25 @@ public class HeartTrailSystem : MonoBehaviour
     [Tooltip("軌跡色調整をリアルタイムで適用")]
     public bool applyTrailColorAdjustments = true;
     
+    [Header("軌跡の縁取り効果")]
+    [Tooltip("縁取りを有効にする")]
+    public bool enableOutline = true;
+    
+    [Tooltip("縁取りの色")]
+    public Color outlineColor = Color.white;
+    
+    [Tooltip("縁取りの幅（0-0.1）")]
+    [Range(0f, 0.1f)]
+    public float outlineWidth = 0.02f;
+    
+    [Tooltip("縁取りの明るさ（0-3）")]
+    [Range(0f, 3f)]
+    public float outlineBrightness = 1.5f;
+    
+    [Tooltip("縁取りのソフトネス（0-1）")]
+    [Range(0f, 1f)]
+    public float outlineSoftness = 0.5f;
+    
     [Header("液体効果")]
     [Tooltip("拡散の強さ")]
     public float diffusionStrength = 1f;
@@ -125,12 +144,16 @@ public class HeartTrailSystem : MonoBehaviour
         UpdateActiveParticles();
         CleanupInactiveAgents();
         
-        // メモリリークを防ぐための定期的なクリーンアップ
-        if (Time.frameCount % 60 == 0) // 1秒ごと
+        // メモリリークを防ぐための定期的なクリーンアップ（頻度を大幅に下げる）
+        if (Time.frameCount % 600 == 0) // 10秒ごと
         {
             CleanupMemoryLeaks();
         }
+        
+        // 積極的なメモリクリーンアップは削除（固まりの原因）
     }
+    
+    // ForceGarbageCollectionとStagedGCメソッドは削除（固まりの原因）
     
     void OnDestroy()
     {
@@ -199,11 +222,11 @@ public class HeartTrailSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// メモリリークを防ぐためのクリーンアップ
+    /// メモリリークを防ぐためのクリーンアップ（軽量化）
     /// </summary>
     void CleanupMemoryLeaks()
     {
-        // null参照を削除
+        // null参照を削除（軽量化）
         for (int i = activeParticles.Count - 1; i >= 0; i--)
         {
             if (activeParticles[i] == null)
@@ -212,7 +235,7 @@ public class HeartTrailSystem : MonoBehaviour
             }
         }
         
-        // 古いエージェント参照をクリーンアップ
+        // 古いエージェント参照をクリーンアップ（軽量化）
         var agentsToRemove = new List<HeartAgent>();
         foreach (var kvp in agentTrails)
         {
@@ -226,6 +249,8 @@ public class HeartTrailSystem : MonoBehaviour
         {
             agentTrails.Remove(agent);
         }
+        
+        // 重いパーティクルシステムのクリーンアップは削除（固まりの原因）
     }
     
     /// <summary>
@@ -325,6 +350,12 @@ public class HeartTrailSystem : MonoBehaviour
             diffusionVelocity,
             discretizationSpeed
         );
+        
+        // 縁取りシェーダーを適用
+        if (enableOutline)
+        {
+            ApplyOutlineToParticle(particle);
+        }
     }
     
     /// <summary>
@@ -534,5 +565,39 @@ public class HeartTrailSystem : MonoBehaviour
     public void OnAgentDestroyed(HeartAgent agent)
     {
         UnregisterAgent(agent);
+    }
+    
+    /// <summary>
+    /// パーティクルに縁取りシェーダーを適用
+    /// </summary>
+    void ApplyOutlineToParticle(TrailParticle particle)
+    {
+        if (particle == null) return;
+        
+        // パーティクルのレンダラーを取得
+        var renderer = particle.GetComponent<Renderer>();
+        if (renderer == null) return;
+        
+        // 縁取りシェーダーを取得
+        Shader outlineShader = Shader.Find("Custom/ParticleOutline");
+        if (outlineShader == null)
+        {
+            Debug.LogWarning("[HeartTrailSystem] ParticleOutlineシェーダーが見つかりません。");
+            return;
+        }
+        
+        // 縁取りマテリアルを作成
+        Material outlineMaterial = new Material(outlineShader);
+        outlineMaterial.name = $"OutlineMaterial_{particle.GetInstanceID()}";
+        outlineMaterial.hideFlags = HideFlags.DontSaveInEditor;
+        
+        // 縁取りパラメータを設定
+        outlineMaterial.SetColor("_OutlineColor", outlineColor);
+        outlineMaterial.SetFloat("_OutlineWidth", outlineWidth);
+        outlineMaterial.SetFloat("_OutlineBrightness", outlineBrightness);
+        outlineMaterial.SetFloat("_Softness", outlineSoftness);
+        
+        // マテリアルを適用
+        renderer.material = outlineMaterial;
     }
 }

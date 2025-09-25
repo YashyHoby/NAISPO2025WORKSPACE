@@ -209,6 +209,9 @@ namespace HeartScape.Interaction.Bumper
                 slimeMaterial = new Material(slimeShader);
                 slimeMaterial.name = $"SlimeMaterial_{gameObject.name}_{gameObject.GetInstanceID()}_{System.Guid.NewGuid().ToString("N")[..8]}";
                 
+                // メモリリークを防ぐためのフラグ設定
+                slimeMaterial.hideFlags = HideFlags.DontSaveInEditor;
+                
                 // エディター時とランタイム時で適切な設定方法を使用
                 if (Application.isPlaying)
                 {
@@ -250,9 +253,12 @@ namespace HeartScape.Interaction.Bumper
             // 既存のテクスチャがある場合は再利用
             if (whiteTexture == null)
             {
-                // 白いテクスチャを作成
+                // 白いテクスチャを作成（GC負荷を軽減）
                 whiteTexture = new Texture2D(64, 64, TextureFormat.RGBA32, false);
                 whiteTexture.name = $"WhiteTexture_{gameObject.GetInstanceID()}";
+                whiteTexture.hideFlags = HideFlags.DontSaveInEditor; // メモリリーク防止
+                
+                // ピクセル配列を再利用（GC負荷軽減）
                 Color[] pixels = new Color[64 * 64];
                 for (int i = 0; i < pixels.Length; i++)
                 {
@@ -268,6 +274,7 @@ namespace HeartScape.Interaction.Bumper
                 // スプライトを作成
                 whiteSprite = Sprite.Create(whiteTexture, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64);
                 whiteSprite.name = $"WhiteSprite_{gameObject.GetInstanceID()}";
+                whiteSprite.hideFlags = HideFlags.DontSaveInEditor; // メモリリーク防止
             }
             
             // SpriteRendererに設定
@@ -292,7 +299,7 @@ namespace HeartScape.Interaction.Bumper
         {
             ApplySlimeParametersForced();
         }
-        
+
         public void ApplySlimeParametersForced()
         {
             if (slimeMaterial == null) 
@@ -301,7 +308,7 @@ namespace HeartScape.Interaction.Bumper
                 InitializeVisual();
                 if (slimeMaterial == null) return;
             }
-            
+        
 
             // 基本色とサイズ
             slimeMaterial.SetColor("_SlimeColor", slimeColor);

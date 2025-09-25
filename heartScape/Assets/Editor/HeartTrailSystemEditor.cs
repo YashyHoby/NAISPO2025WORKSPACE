@@ -216,6 +216,22 @@ public class HeartTrailSystemEditor : Editor
             EditorGUILayout.EndHorizontal();
         }
         
+        // 縁取り効果の設定
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("縁取り効果", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical("box");
+        
+        trailSystem.enableOutline = EditorGUILayout.Toggle("縁取りを有効にする", trailSystem.enableOutline);
+        if (trailSystem.enableOutline)
+        {
+            trailSystem.outlineColor = EditorGUILayout.ColorField("縁取りの色", trailSystem.outlineColor);
+            trailSystem.outlineWidth = EditorGUILayout.Slider("縁取りの幅", trailSystem.outlineWidth, 0f, 0.1f);
+            trailSystem.outlineBrightness = EditorGUILayout.Slider("縁取りの明るさ", trailSystem.outlineBrightness, 0f, 3f);
+            trailSystem.outlineSoftness = EditorGUILayout.Slider("縁取りのソフトネス", trailSystem.outlineSoftness, 0f, 1f);
+        }
+        
+        EditorGUILayout.EndVertical();
+        
         if (GUI.changed)
         {
             EditorUtility.SetDirty(trailSystem);

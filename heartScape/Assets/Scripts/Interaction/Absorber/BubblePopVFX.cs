@@ -1,7 +1,10 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
-[RequireComponent(typeof(ParticleSystem))]
+/// <summary>
+/// シンプルな花火エフェクトシステム
+/// liquidオブジェクトの色に基づく美しい花火を生成
+/// </summary>
 public class BubblePopVFX : MonoBehaviour
 {
     [Tooltip("吸収泡の液体サイト。カラー抽出に使用します。")]
@@ -10,33 +13,51 @@ public class BubblePopVFX : MonoBehaviour
     [Tooltip("互換用：旧 BubbleVisual2D を参照する場合に設定します。")]
     public BubbleVisual2D legacyBubbleVisual;
 
-    public AnimationCurve speedOverLife = AnimationCurve.EaseInOut(0, 1, 1, 0);
-    public int burstCount = 600;
-    public float startSpeed = 6f;
-    public float lifeTime = 1.6f;
-    public float size = 0.03f;
+    [Header("シンプル花火システム")]
+    [Tooltip("シンプル花火システム")]
+    public Component fireworkSystem;
 
-    ParticleSystem ps;
     readonly List<Color> paletteBuffer = new();
 
     void Awake()
     {
-        ps = GetComponent<ParticleSystem>();
-        SetupIfNeeded();
+        // シンプル花火システムを自動取得
+        if (fireworkSystem == null)
+        {
+            fireworkSystem = GetComponent("SimpleFireworkSystem") as Component;
+            if (fireworkSystem == null)
+            {
+                // より確実な方法で型を取得
+                System.Type fireworkType = null;
+                string[] typeNames = {
+                    "SimpleFireworkSystem, Assembly-CSharp",
+                    "SimpleFireworkSystem, Assembly-CSharp-firstpass",
+                    "SimpleFireworkSystem"
+                };
+                
+                foreach (string typeName in typeNames)
+                {
+                    fireworkType = System.Type.GetType(typeName);
+                    if (fireworkType != null) break;
+                }
+                
+                if (fireworkType != null)
+                {
+                    fireworkSystem = gameObject.AddComponent(fireworkType) as Component;
+                }
+            }
+        }
     }
-
-    void SetupIfNeeded()
+    
+    void OnDestroy()
     {
-        var main = ps.main;
-        main.loop = false;
-        main.startLifetime = lifeTime;
-        main.startSpeed = startSpeed;
-        main.startSize = size;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-
-        var emission = ps.emission;
-        emission.rateOverTime = 0f;
+        // 花火システムをクリーンアップ
+        if (fireworkSystem != null)
+        {
+            fireworkSystem.SendMessage("StopFirework", null, SendMessageOptions.DontRequireReceiver);
+        }
     }
+
 
     void GatherPalette()
     {
@@ -55,17 +76,11 @@ public class BubblePopVFX : MonoBehaviour
     public void PlayPop()
     {
         GatherPalette();
-
-        for (int i = 0; i < burstCount; i++)
+        
+        // シンプル花火システムを開始
+        if (fireworkSystem != null)
         {
-            var emit = new ParticleSystem.EmitParams();
-            Vector2 dir = Random.insideUnitCircle.normalized;
-            emit.velocity = new Vector3(dir.x, dir.y, 0f) * (startSpeed * Random.Range(0.7f, 1.3f));
-            emit.startLifetime = lifeTime * Random.Range(0.7f, 1.1f);
-            emit.startSize = size * Random.Range(0.6f, 1.4f);
-            emit.startColor = paletteBuffer[Random.Range(0, paletteBuffer.Count)];
-            ps.Emit(emit, 1);
+            fireworkSystem.SendMessage("StartFirework", paletteBuffer, SendMessageOptions.DontRequireReceiver);
         }
-        ps.Play();
     }
 }
