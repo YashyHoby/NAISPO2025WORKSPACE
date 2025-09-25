@@ -21,8 +21,8 @@ public class SimpleFireworkSystem : MonoBehaviour
     public float lifetime = 2f;
     
     [Tooltip("花火のサイズ")]
-    [Range(0.01f, 0.2f)]
-    public float particleSize = 0.05f;
+    [Range(0.01f, 1f)]
+    public float particleSize = 0.1f;
     
     [Header("色設定")]
     [Tooltip("パーティクルの明度調整")]
@@ -54,12 +54,20 @@ public class SimpleFireworkSystem : MonoBehaviour
     public float trailAlpha = 0.8f;
     
     [Tooltip("軌跡の長さ")]
-    [Range(5, 30)]
-    public int trailLength = 15;
+    [Range(10, 100)]
+    public int trailLength = 30;
     
     [Tooltip("軌跡の幅")]
-    [Range(0.01f, 0.1f)]
-    public float trailWidth = 0.03f;
+    [Range(0.01f, 0.5f)]
+    public float trailWidth = 0.05f;
+    
+    [Tooltip("軌跡の先端幅")]
+    [Range(0.001f, 0.1f)]
+    public float trailEndWidth = 0.01f;
+    
+    [Tooltip("軌跡末端の透明度")]
+    [Range(0f, 1f)]
+    public float trailEndAlpha = 0.05f;
     
     [Header("破裂タイミング")]
     [Tooltip("破裂までの遅延時間")]
@@ -145,6 +153,9 @@ public class SimpleFireworkSystem : MonoBehaviour
         spriteRenderer.sprite = CreateParticleSprite();
         spriteRenderer.sortingOrder = 10;
         
+        // パーティクルサイズを適用
+        particleObj.transform.localScale = Vector3.one * particleSize;
+        
         // 軌跡を作成
         LineRenderer trail = null;
         if (enableTrail)
@@ -204,8 +215,8 @@ public class SimpleFireworkSystem : MonoBehaviour
         trail.material.hideFlags = HideFlags.HideAndDontSave;
         trail.material.SetFloat("_Mode", 3); // 透明度ブレンドモード
         
-        trail.startWidth = trailWidth;
-        trail.endWidth = trailWidth;
+        trail.startWidth = trailEndWidth;  // 軌跡の古い部分（細い）
+        trail.endWidth = trailWidth;       // パーティクルに近い部分（太い）
         trail.useWorldSpace = true;
         trail.sortingOrder = 5;
         trail.sortingLayerName = "Default";
@@ -348,15 +359,58 @@ public class SimpleFireworkSystem : MonoBehaviour
                 particle.trail.SetPosition(i, particle.trailPositions[i]);
             }
             
-            // 軌跡の色を更新
-            Color trailColor = ApplyColorAdjustments(particle.color, trailBrightness, trailSaturation, trailAlpha);
-            particle.trail.startColor = trailColor;
-            particle.trail.endColor = new Color(trailColor.r, trailColor.g, trailColor.b, trailColor.a * 0.3f);
+            // 軌跡の色を距離ベースで更新
+            UpdateTrailColors(particle);
         }
         else if (particle.trailPositions.Count >= 2)
         {
             // 軌跡が短い場合は非表示
             particle.trail.positionCount = 0;
+        }
+    }
+    
+    /// <summary>
+    /// 軌跡の色を距離ベースで更新
+    /// </summary>
+    void UpdateTrailColors(FireworkParticle particle)
+    {
+        if (particle.trail == null || particle.trailPositions.Count < 2) return;
+        
+        Vector3 currentPosition = particle.gameObject.transform.position;
+        
+        // 軌跡の色を計算
+        Color baseTrailColor = ApplyColorAdjustments(particle.color, trailBrightness, trailSaturation, trailAlpha);
+        
+        // パーティクルに近いほど不透明、遠いほど透明
+        // LineRendererでは、startColor=軌跡の古い部分、endColor=軌跡の新しい部分
+        Color startColor = baseTrailColor;
+        startColor.a = trailAlpha * trailEndAlpha; // 軌跡の古い部分（透明）
+        
+        Color endColor = baseTrailColor;
+        endColor.a = trailAlpha; // パーティクルに近い部分（不透明）
+        
+        particle.trail.startColor = startColor;
+        particle.trail.endColor = endColor;
+        
+        // 各ポイントの透明度を個別に設定（より滑らかなフェード）
+        if (particle.trailPositions.Count >= 3)
+        {
+            Gradient gradient = new Gradient();
+            GradientColorKey[] colorKeys = new GradientColorKey[3];
+            GradientAlphaKey[] alphaKeys = new GradientAlphaKey[3];
+            
+            // 色キー（3ポイントで滑らかなグラデーション）
+            colorKeys[0] = new GradientColorKey(baseTrailColor, 0f);
+            colorKeys[1] = new GradientColorKey(baseTrailColor, 0.5f);
+            colorKeys[2] = new GradientColorKey(baseTrailColor, 1f);
+            
+            // 透明度キー（滑らかなフェード）
+            alphaKeys[0] = new GradientAlphaKey(trailAlpha * trailEndAlpha, 0f); // 軌跡の古い部分（透明）
+            alphaKeys[1] = new GradientAlphaKey(trailAlpha * (trailEndAlpha + 0.3f), 0.5f); // 中間部分
+            alphaKeys[2] = new GradientAlphaKey(trailAlpha, 1f); // パーティクルに近い（不透明）
+            
+            gradient.SetKeys(colorKeys, alphaKeys);
+            particle.trail.colorGradient = gradient;
         }
     }
     
