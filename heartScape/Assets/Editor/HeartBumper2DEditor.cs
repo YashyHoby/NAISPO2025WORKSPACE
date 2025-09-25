@@ -9,32 +9,8 @@ public class HeartBumper2DEditor : Editor
     {
         HeartBumper2D bumper = (HeartBumper2D)target;
         
-        // 変更前の値を記録
-        float oldColliderWidth = bumper.colliderWidth;
-        float oldColliderHeight = bumper.colliderHeight;
-        
         // デフォルトのインスペクターを表示
         DrawDefaultInspector();
-        
-        // コライダーサイズが変更されたかチェック
-        bool colliderSizeChanged = oldColliderWidth != bumper.colliderWidth || oldColliderHeight != bumper.colliderHeight;
-        
-        if (colliderSizeChanged)
-        {
-            // コライダーサイズが変更された場合は即座に更新
-            bumper.UpdateColliderSize();
-            
-            // ビジュアルも同期（エディター時）
-            if (bumper.slimeVisual != null && !Application.isPlaying)
-            {
-                bumper.slimeVisual.rectWidth = bumper.colliderWidth;
-                bumper.slimeVisual.rectHeight = bumper.colliderHeight;
-                bumper.slimeVisual.UpdateVisualSizeEditor();
-                bumper.slimeVisual.ApplySlimeParametersForced();
-            }
-            
-            EditorUtility.SetDirty(bumper);
-        }
         
         // スライダー即座反映システム（更新ボタンは削除）
         
@@ -50,16 +26,65 @@ public class HeartBumper2DEditor : Editor
         
         if (circleCollider != null)
         {
-            EditorGUILayout.HelpBox("現在: CircleCollider2D（長方形バンパーには不適切）", MessageType.Warning);
+            EditorGUILayout.HelpBox("現在: CircleCollider2D（円形バンパー）", MessageType.Info);
+            EditorGUILayout.LabelField($"半径: {circleCollider.radius:F2}");
+            EditorGUILayout.HelpBox("円形コライダーのサイズは、CircleCollider2Dコンポーネントで直接編集してください。", MessageType.Info);
+            
+            EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("BoxCollider2Dに変換"))
             {
                 bumper.ForceConvertToBoxCollider();
             }
+            if (GUILayout.Button("円形ビジュアルに調整"))
+            {
+                if (bumper.slimeVisual != null)
+                {
+                    float diameter = circleCollider.radius * 2f;
+                    bumper.slimeVisual.rectWidth = diameter;
+                    bumper.slimeVisual.rectHeight = diameter;
+                    bumper.slimeVisual.cornerRadius = diameter * 0.5f;
+                    bumper.slimeVisual.ApplySlimeParametersForced();
+                    EditorUtility.SetDirty(bumper.slimeVisual);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
         }
         else if (boxCollider != null)
         {
-            EditorGUILayout.HelpBox("現在: BoxCollider2D（適切な設定）", MessageType.Info);
+            EditorGUILayout.HelpBox("現在: BoxCollider2D（長方形バンパー）", MessageType.Info);
             EditorGUILayout.LabelField($"サイズ: {boxCollider.size.x:F2} x {boxCollider.size.y:F2}");
+            EditorGUILayout.HelpBox("長方形コライダーのサイズは、BoxCollider2Dコンポーネントで直接編集してください。", MessageType.Info);
+            
+            // 楕円形調整ボタン
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("楕円形ビジュアルに調整"))
+            {
+                if (bumper.slimeVisual != null)
+                {
+                    // 楕円形に調整（角の丸みを大きくして楕円形に近づける）
+                    bumper.slimeVisual.rectWidth = boxCollider.size.x;
+                    bumper.slimeVisual.rectHeight = boxCollider.size.y;
+                    // 楕円形にするため角の丸みを大きく設定
+                    float minSize = Mathf.Min(boxCollider.size.x, boxCollider.size.y);
+                    bumper.slimeVisual.cornerRadius = minSize * 0.4f; // 楕円形に近づける
+                    bumper.slimeVisual.ApplySlimeParametersForced();
+                    EditorUtility.SetDirty(bumper.slimeVisual);
+                }
+            }
+            if (GUILayout.Button("完全な楕円形に調整"))
+            {
+                if (bumper.slimeVisual != null)
+                {
+                    // 完全な楕円形に調整（角の丸みを最大に）
+                    bumper.slimeVisual.rectWidth = boxCollider.size.x;
+                    bumper.slimeVisual.rectHeight = boxCollider.size.y;
+                    float minSize = Mathf.Min(boxCollider.size.x, boxCollider.size.y);
+                    bumper.slimeVisual.cornerRadius = minSize * 0.5f; // 完全な楕円形
+                    bumper.slimeVisual.ApplySlimeParametersForced();
+                    EditorUtility.SetDirty(bumper.slimeVisual);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
         }
         else
         {

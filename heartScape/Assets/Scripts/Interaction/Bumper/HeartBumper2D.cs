@@ -32,14 +32,7 @@ namespace HeartScape.Interaction.Bumper
         [Tooltip("振動演出の振動数（Hz）です。")]
         public float visualShakeFrequency = 7f;
         
-        [Header("長方形コライダー設定")]
-        [Tooltip("長方形の幅")]
-        [Range(0.1f, 5.0f)]
-        public float colliderWidth = 1.2f;
-        
-        [Tooltip("長方形の高さ")]
-        [Range(0.1f, 5.0f)]
-        public float colliderHeight = 0.8f;
+        // 長方形コライダー設定は削除 - BoxCollider2Dコンポーネントで直接編集
         
         [Header("ビジュアル管理")]
         [Tooltip("スライムビジュアルオブジェクト")]
@@ -58,7 +51,7 @@ namespace HeartScape.Interaction.Bumper
 
         void Start()
         {
-            UpdateColliderSize();
+            // 自動初期化は削除 - BoxCollider2Dコンポーネントで直接編集
         }
 
         void OnValidate()
@@ -69,8 +62,8 @@ namespace HeartScape.Interaction.Bumper
 
         void InitializeBumper()
         {
-            // BoxCollider2Dを確保
-            EnsureBoxCollider();
+            // コライダーを確保（CircleCollider2DまたはBoxCollider2D）
+            EnsureCollider();
             
             // ビジュアルオブジェクトを自動作成
             if (slimeVisual == null)
@@ -79,44 +72,32 @@ namespace HeartScape.Interaction.Bumper
             }
         }
 
-        void EnsureBoxCollider()
+        void EnsureCollider()
         {
-            // CircleCollider2Dを削除してBoxCollider2Dに変更
-            CircleCollider2D circleCollider = GetComponent<CircleCollider2D>();
-            if (circleCollider != null)
+            // 既存のコライダーを取得（CircleCollider2DまたはBoxCollider2D）
+            bumperCollider = GetComponent<Collider2D>();
+            
+            if (bumperCollider == null)
             {
-                bool wasTrigger = circleCollider.isTrigger;
-                PhysicsMaterial2D physicsMaterial = circleCollider.sharedMaterial;
-                
-                if (Application.isPlaying)
-                {
-                    Destroy(circleCollider);
-                }
-                else
-                {
-                    DestroyImmediate(circleCollider);
-                }
-                
+                // コライダーがない場合はBoxCollider2Dを追加
                 boxCollider = gameObject.AddComponent<BoxCollider2D>();
-                boxCollider.isTrigger = wasTrigger;
-                boxCollider.sharedMaterial = physicsMaterial;
+                bumperCollider = boxCollider;
             }
-            else
+            else if (bumperCollider is BoxCollider2D)
             {
-                boxCollider = GetComponent<BoxCollider2D>();
-                if (boxCollider == null)
-                {
-                    boxCollider = gameObject.AddComponent<BoxCollider2D>();
-                }
+                boxCollider = bumperCollider as BoxCollider2D;
             }
-
-            bumperCollider = boxCollider;
+            else if (bumperCollider is CircleCollider2D)
+            {
+                // CircleCollider2Dの場合はそのまま使用
+                boxCollider = null; // BoxCollider2Dではない
+            }
         }
 
         void CreateSlimeVisualChild()
         {
-            // 子オブジェクトを作成
-            GameObject visualObj = new GameObject("SlimeVisual");
+            // 子オブジェクトを作成（ユニークな名前）
+            GameObject visualObj = new GameObject($"SlimeVisual_{gameObject.name}_{gameObject.GetInstanceID()}");
             visualObj.transform.SetParent(transform, false);
             visualObj.transform.localPosition = Vector3.zero;
             visualObj.transform.localRotation = Quaternion.identity;
@@ -125,26 +106,27 @@ namespace HeartScape.Interaction.Bumper
             // SlimeBumperVisualコンポーネントを追加
             slimeVisual = visualObj.AddComponent<HeartScape.Interaction.Bumper.SlimeBumperVisual>();
             
-            // 初期設定
-            slimeVisual.rectWidth = colliderWidth;
-            slimeVisual.rectHeight = colliderHeight;
-        }
-
-        public void UpdateColliderSize()
-        {
+            // 初期設定（コライダーからサイズを取得）
             if (boxCollider != null)
             {
-                boxCollider.size = new Vector2(colliderWidth, colliderHeight);
+                // BoxCollider2Dの場合
+                slimeVisual.rectWidth = boxCollider.size.x;
+                slimeVisual.rectHeight = boxCollider.size.y;
+            }
+            else if (bumperCollider is CircleCollider2D circleCollider)
+            {
+                // CircleCollider2Dの場合、直径を正方形のサイズとして使用
+                float diameter = circleCollider.radius * 2f;
+                slimeVisual.rectWidth = diameter;
+                slimeVisual.rectHeight = diameter;
+                // 角の丸みを最大にして円形に近づける
+                slimeVisual.cornerRadius = diameter * 0.5f;
             }
             
-            // ビジュアルのサイズも同期（実行時のみ）
-            if (slimeVisual != null && Application.isPlaying)
-            {
-                slimeVisual.rectWidth = colliderWidth;
-                slimeVisual.rectHeight = colliderHeight;
-                slimeVisual.UpdateVisualSize();
-            }
+            Debug.Log($"Created unique SlimeVisual child: {visualObj.name} for {gameObject.name}");
         }
+
+        // UpdateColliderSize()メソッドは削除 - BoxCollider2Dコンポーネントで直接編集
 
         void OnEnable()
         {
@@ -299,8 +281,44 @@ namespace HeartScape.Interaction.Bumper
 
         public void ForceConvertToBoxCollider()
         {
-            EnsureBoxCollider();
-            UpdateColliderSize();
+            // CircleCollider2DをBoxCollider2Dに変換
+            CircleCollider2D circleCollider = GetComponent<CircleCollider2D>();
+            if (circleCollider != null)
+            {
+                bool wasTrigger = circleCollider.isTrigger;
+                PhysicsMaterial2D physicsMaterial = circleCollider.sharedMaterial;
+                float radius = circleCollider.radius;
+                
+                if (Application.isPlaying)
+                {
+                    Destroy(circleCollider);
+                }
+                else
+                {
+                    DestroyImmediate(circleCollider);
+                }
+                
+                boxCollider = gameObject.AddComponent<BoxCollider2D>();
+                boxCollider.isTrigger = wasTrigger;
+                boxCollider.sharedMaterial = physicsMaterial;
+                // 円の直径を正方形のサイズとして設定
+                float diameter = radius * 2f;
+                boxCollider.size = new Vector2(diameter, diameter);
+                bumperCollider = boxCollider;
+                
+                // ビジュアルも更新
+                if (slimeVisual != null)
+                {
+                    slimeVisual.rectWidth = diameter;
+                    slimeVisual.rectHeight = diameter;
+                    slimeVisual.cornerRadius = 0.2f; // 角の丸みをリセット
+                }
+            }
+            else
+            {
+                // 既にBoxCollider2Dの場合は何もしない
+                EnsureCollider();
+            }
         }
     }
 }

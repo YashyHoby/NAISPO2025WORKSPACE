@@ -188,22 +188,26 @@ namespace HeartScape.Interaction.Bumper
 
         void CreateOrGetSlimeMaterial()
         {
-            // 現在のマテリアルをチェック
-            Material currentMaterial = Application.isPlaying ? spriteRenderer.material : spriteRenderer.sharedMaterial;
-            
-            if (currentMaterial != null && currentMaterial.shader != null && currentMaterial.shader.name == "Custom/SlimeRectangle")
-            {
-                // 既に適切なマテリアルがある場合
-                slimeMaterial = currentMaterial;
-                return;
-            }
-            
-            // 新しいマテリアルを作成
+            // 常に新しいマテリアルインスタンスを作成（独立性を確保）
             Shader slimeShader = Shader.Find("Custom/SlimeRectangle");
             if (slimeShader != null)
             {
+                // 既存のマテリアルをクリーンアップ
+                if (slimeMaterial != null)
+                {
+                    if (Application.isPlaying)
+                    {
+                        Destroy(slimeMaterial);
+                    }
+                    else
+                    {
+                        DestroyImmediate(slimeMaterial);
+                    }
+                }
+                
+                // 新しいマテリアルインスタンスを作成（完全に独立）
                 slimeMaterial = new Material(slimeShader);
-                slimeMaterial.name = $"SlimeMaterial_{gameObject.name}_{gameObject.GetInstanceID()}";
+                slimeMaterial.name = $"SlimeMaterial_{gameObject.name}_{gameObject.GetInstanceID()}_{System.Guid.NewGuid().ToString("N")[..8]}";
                 
                 // エディター時とランタイム時で適切な設定方法を使用
                 if (Application.isPlaying)
@@ -214,6 +218,8 @@ namespace HeartScape.Interaction.Bumper
                 {
                     spriteRenderer.sharedMaterial = slimeMaterial;
                 }
+                
+                Debug.Log($"Created unique material: {slimeMaterial.name} for {gameObject.name}");
             }
             else
             {
@@ -296,7 +302,6 @@ namespace HeartScape.Interaction.Bumper
                 if (slimeMaterial == null) return;
             }
             
-            Debug.Log($"Applying parameters: OuterThickness={outerThickness}, OuterAlpha={outerAlpha}, InnerThickness={innerThickness}");
 
             // 基本色とサイズ
             slimeMaterial.SetColor("_SlimeColor", slimeColor);
