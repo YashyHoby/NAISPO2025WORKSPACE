@@ -210,6 +210,7 @@ namespace HeartScape.IO.Gateway
             
             if (spawnedAgent != null)
             {
+                heartGateway.ApplyInputOverrides(input, spawnedAgent);
                 // 生成されたオブジェクトに徐々生成エフェクトを適用
                 StartCoroutine(ApplyGradualAppearance(spawnedAgent));
             }

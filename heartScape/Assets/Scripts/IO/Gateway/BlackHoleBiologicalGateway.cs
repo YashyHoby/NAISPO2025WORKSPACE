@@ -233,6 +233,7 @@ namespace HeartScape.IO.Gateway
             
             if (spawnedAgent != null)
             {
+                heartGateway.ApplyInputOverrides(input, spawnedAgent);
                 return spawnedAgent.gameObject;
             }
             

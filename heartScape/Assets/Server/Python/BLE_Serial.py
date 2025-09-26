@@ -1,113 +1,140 @@
+﻿import argparse
 import asyncio
-from bleak import BleakClient
+import json
+import sys
 from functools import partial
-import websockets # ★★★ WebSocketライブラリをインポート
 
-# --- 設定項目 ---
+from bleak import BleakClient
+import websockets
+
+# --- Configuration ---
 TARGET_DEVICES = {
-    "M5_A": "48:27:e2:e3:c8:e9",  # 1台目のアドレス
-    "M5_B": "48:27:e2:e3:b6:55"   # 2台目のアドレス
+    "M5_A": "48:27:e2:e3:c8:e9",
+    "M5_B": "48:27:e2:e3:b6:55",
 }
 NOTIFY_CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-RECONNECT_DELAY_SECONDS = 3  # 再接続を試みるまでの待機時間（秒）
+RECONNECT_DELAY_SECONDS = 3
 
-WEBSOCKET_HOST = "localhost" # サーバーのホスト名
-WEBSOCKET_PORT = 8765        # サーバーのポート番号
-# --- ここまで ---
+WEBSOCKET_HOST = "localhost"
+WEBSOCKET_PORT = 8765
+# --- end configuration ---
 
-
-# ★★★ WebSocket関連のグローバル変数 ★★★
-# 接続されている全Unityクライアントを保持するセット
 CONNECTED_CLIENTS = set()
 
+DEBUG_SAMPLE_PAYLOADS = {
+    "1": {"button": 0, "state": "released", "time": 2, "hr": 60, "cv": 0.045, "dynRange": 0.35, "Hue": 20},
+    "2": {"button": 1, "state": "released", "time": 0.75, "hr": 72, "cv": 0.085, "dynRange": 0.55, "Hue": 135},
+    "3": {"button": 2, "state": "released", "time": 1.20, "hr": 88, "cv": 0.120, "dynRange": 0.72, "Hue": 220},
+    "4": {"button": 3, "state": "released", "time": 1.80, "hr": 102, "cv": 0.160, "dynRange": 0.90, "Hue": 315},
+}
 
-# ★★★ 1. WebSocketクライアントにメッセージをブロードキャストする関数 ★★★
-async def broadcast_to_clients(message):
-    """接続されている全クライアントにメッセージを送信する"""
+
+async def broadcast_to_clients(message: str) -> None:
     if CONNECTED_CLIENTS:
-        # 全てのクライアントへの送信タスクを作成し、並行して実行
-        await asyncio.gather(
-            *(client.send(message) for client in CONNECTED_CLIENTS)
-        )
+        await asyncio.gather(*(client.send(message) for client in CONNECTED_CLIENTS))
 
-# ★★★ 2. BLEの通知ハンドラを修正 ★★★
-#    受信したデータをprintするだけでなく、WebSocketでブロードキャストする
-def notification_handler(address, sender, data):
-    """BLEでデータを受信したら、コンソールに表示し、Unityクライアントに送信する"""
-    message = data.decode('utf-8')
-    print(f"[{address}] から受信: {message}")
-    
-    # asyncioのイベントループにブロードキャストタスクをスケジュールする
-    # これにより、WebSocketの送信処理がBLEの受信処理をブロックしない
+
+def notification_handler(address, sender, data: bytearray):
+    message = data.decode("utf-8")
+    print(f"[{address}] received: {message}")
     asyncio.create_task(broadcast_to_clients(message))
 
 
-# ★★★ 3. WebSocketサーバーのハンドラ関数 ★★★
-async def websocket_handler(websocket, path):
-    """Unityクライアントが接続したときの処理"""
-    print(f"Unityクライアントが接続しました: {websocket.remote_address}")
+async def websocket_handler(websocket, path=None):
+    print(f"Unity client connected: {websocket.remote_address}")
     CONNECTED_CLIENTS.add(websocket)
     try:
-        # クライアントが接続している間、メッセージを待ち続ける
-        # Unity側からメッセージを送る必要がなければ、このループは実質何もしない
         async for message in websocket:
-            print(f"Unityから受信: {message}") # Unityからのメッセージは基本使わない
+            print(f"Message from Unity: {message}")
     except websockets.exceptions.ConnectionClosed:
-        print(f"Unityクライアントの接続が切れました: {websocket.remote_address}")
+        print(f"Unity client disconnected: {websocket.remote_address}")
     finally:
-        # 接続が切れたらセットから削除
-        CONNECTED_CLIENTS.remove(websocket)
+        CONNECTED_CLIENTS.discard(websocket)
 
 
-async def connect_and_listen(address, name):
-    """（この関数は変更なし）"""
+async def connect_and_listen(address: str, name: str):
     while True:
         client = None
         try:
-            print(f"[{name}] {address} への接続を試みます...")
-            def on_disconnect(client):
-                print(f"警告: [{name}] {client.address} との接続が切れました。")
-            
+            print(f"[{name}] connecting to {address} ...")
+
+            def on_disconnect(disconnected_client):
+                print(f"Warning [{name}] connection lost: {disconnected_client.address}")
+
             client = BleakClient(address, disconnected_callback=on_disconnect, timeout=20.0)
             await client.connect()
 
             if client.is_connected:
-                print(f"◎ [{name}] {address} に接続成功")
+                print(f"[{name}] connected to {address}")
                 handler = partial(notification_handler, client.address)
                 await client.start_notify(NOTIFY_CHARACTERISTIC_UUID, handler)
-                print(f"   -> [{name}] からの通知待受を開始しました。")
+                print(f"   -> [{name}] notifications started")
                 while client.is_connected:
                     await asyncio.sleep(1)
-        except Exception as e:
-            print(f"× エラー: [{name}] {address} への接続中に問題が発生しました: {e}")
+        except Exception as exc:
+            print(f"Error [{name}] connecting to {address}: {exc}")
         finally:
             if client and client.is_connected:
                 await client.disconnect()
-            print(f"[{name}] {RECONNECT_DELAY_SECONDS}秒後に再接続します。")
+            print(f"[{name}] retrying in {RECONNECT_DELAY_SECONDS} seconds")
             await asyncio.sleep(RECONNECT_DELAY_SECONDS)
 
 
-async def main():
-    print("複数のM5Stackへの接続とWebSocketサーバーを起動します...")
+async def debug_input_loop():
+    loop = asyncio.get_running_loop()
+    print("[Debug] Press keys 1-4 then Enter to send sample packets. q or empty line to quit.")
+    try:
+        while True:
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+            if not line:
+                break
+            key = line.strip()
+            if key in ("q", "Q", ""):
+                print("[Debug] Leaving debug input loop.")
+                break
+            if key in DEBUG_SAMPLE_PAYLOADS:
+                payload = DEBUG_SAMPLE_PAYLOADS[key]
+                message = json.dumps(payload)
+                print(f"[Debug] sending: {message}")
+                await broadcast_to_clients(message)
+            else:
+                print("[Debug] Enter 1-4 or q to quit.")
+    except asyncio.CancelledError:
+        pass
 
-    # ★★★ 4. WebSocketサーバーを起動する ★★★
-    start_server = websockets.serve(websocket_handler, WEBSOCKET_HOST, WEBSOCKET_PORT)
-    
-    # BLE接続用のタスクを作成
-    ble_tasks = [
-        connect_and_listen(address, name)
-        for name, address in TARGET_DEVICES.items()
-    ]
-    
-    # ★★★ 5. WebSocketサーバーとBLEクライアントの両方を並行して実行する ★★★
-    await asyncio.gather(
-        start_server,
-        *ble_tasks
-    )
+
+async def main(args):
+    host = args.host or WEBSOCKET_HOST
+    port = args.port or WEBSOCKET_PORT
+    print(f"Starting BLE bridge and WebSocket server on {host}:{port}")
+
+    server = await websockets.serve(websocket_handler, host, port)
+    tasks = []
+    try:
+        if args.debug:
+            print("[Debug] Running in debug mode (BLE disabled)")
+            tasks.append(asyncio.create_task(debug_input_loop()))
+        else:
+            for name, address in TARGET_DEVICES.items():
+                tasks.append(asyncio.create_task(connect_and_listen(address, name)))
+
+        if tasks:
+            await asyncio.gather(*tasks)
+        else:
+            await asyncio.Event().wait()
+    finally:
+        server.close()
+        await server.wait_closed()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="BLE relay & WebSocket bridge")
+    parser.add_argument("--host", default=WEBSOCKET_HOST, help="WebSocket host to bind (default: localhost)")
+    parser.add_argument("--port", type=int, default=WEBSOCKET_PORT, help="WebSocket port to bind (default: 8765)")
+    parser.add_argument("--debug", action="store_true", help="Debug mode: send sample packets from keyboard")
+    cli_args = parser.parse_args()
+
     try:
-        asyncio.run(main())
+        asyncio.run(main(cli_args))
     except KeyboardInterrupt:
-        print("\nプログラムを終了します。")
+        print("\nExiting.")

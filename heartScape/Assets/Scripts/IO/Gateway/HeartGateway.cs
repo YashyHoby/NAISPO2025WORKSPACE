@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
@@ -8,33 +8,33 @@ using HeartScape.IO.Gateway;
 
 public class HeartGateway : MonoBehaviour
 {
-    [Header("参照")]
+    [Header("References")]
     public HeartManager manager;
-    
-    [Header("生物学的オーガン")]
-    [Tooltip("生物学的オーガンシステムを使用")]
+
+    [Header("Biological Organ")]
+    [Tooltip("Use biological organ spawning pathway")]
     public bool useBiologicalOrgan = true;
-    
-    [Tooltip("ブラックホール風生物学的オーガンゲートウェイ")]
+
+    [Tooltip("Black hole style biological organ gateway")]
     public BlackHoleBiologicalGateway blackHoleBiologicalGateway;
-    
-    [Tooltip("統合ブラックホールゲートウェイマネージャー")]
+
+    [Tooltip("Integrated black hole gateway manager")]
     public BlackHoleGatewayManager blackHoleGatewayManager;
 
-    [Header("エミッタ（A/B/C/D）")]
-    [Tooltip("スイッチ A/B/C/D に対応する発射位置。Transform.right が射出方向になります。")]
+    [Header("Emitters (A/B/C/D)")]
+    [Tooltip("Spawn positions for switches A/B/C/D. Transform.right is used as launch direction.")]
     public Transform[] emitters = new Transform[4];
 
-    [Header("射出パラメータ")]
+    [Header("Launch Parameters")]
     public float baseSpeed = 3f;
     public float speedJitter = 0.5f;
     public float spreadDeg = 5f;
 
-    [Header("データソース")]
-    [Tooltip("UID が指定されている場合は DB のプロファイルを優先して使います。")]
+    [Header("Data Source")]
+    [Tooltip("When true and UID is supplied, prefer profiles stored in HeartDB.")]
     public bool preferDbIfUid = true;
 
-    [Header("UDP（任意）")]
+    [Header("UDP (optional)")]
     public bool useUdp = false;
     public int listenPort = 33333;
 
@@ -47,15 +47,21 @@ public class HeartGateway : MonoBehaviour
     public class HeartInput
     {
         public string uid;
-        public int switchNo; // 1..4（A=1,B=2,C=3,D=4）
-        public float hr, cv, range, mean;
+        public int switchNo; // 1..4 (A=1, B=2, C=3, D=4)
+        public float hr;
+        public float cv;
+        public float range;
+        public float mean;
+        public float pressTime;
+        public float dynRange;
+        public float hue; // normalized hue 0..1
+        public bool hasHue; // true when hue override is supplied
     }
 
     void Awake()
     {
         HeartDB.Load();
-        
-        // 統合ブラックホールゲートウェイマネージャーを自動設定
+
         if (useBiologicalOrgan)
         {
             if (blackHoleGatewayManager == null)
@@ -63,7 +69,6 @@ public class HeartGateway : MonoBehaviour
                 blackHoleGatewayManager = GetComponent<BlackHoleGatewayManager>();
                 if (blackHoleGatewayManager == null)
                 {
-                    // コンポーネントが存在しない場合は追加
                     blackHoleGatewayManager = gameObject.AddComponent<BlackHoleGatewayManager>();
                     Debug.Log("[HeartGateway] BlackHoleGatewayManager component added automatically");
                 }
@@ -72,8 +77,7 @@ public class HeartGateway : MonoBehaviour
                     Debug.Log("[HeartGateway] BlackHoleGatewayManager component found");
                 }
             }
-            
-            // 従来のBlackHoleBiologicalGatewayも取得
+
             if (blackHoleBiologicalGateway == null)
             {
                 blackHoleBiologicalGateway = GetComponent<BlackHoleBiologicalGateway>();
@@ -83,7 +87,7 @@ public class HeartGateway : MonoBehaviour
                     Debug.Log("[HeartGateway] BlackHoleBiologicalGateway component added automatically");
                 }
             }
-            
+
             Debug.Log($"[HeartGateway] Integrated black hole system enabled - Manager: {blackHoleGatewayManager != null}, Gateway: {blackHoleBiologicalGateway != null}");
         }
         else
@@ -94,7 +98,6 @@ public class HeartGateway : MonoBehaviour
 
     void Start()
     {
-        // Startで参照を再確認
         if (useBiologicalOrgan && blackHoleBiologicalGateway == null)
         {
             blackHoleBiologicalGateway = GetComponent<BlackHoleBiologicalGateway>();
@@ -104,7 +107,7 @@ public class HeartGateway : MonoBehaviour
             }
         }
     }
-    
+
     void OnEnable()  { if (useUdp) StartUdp(); }
     void OnDisable() { StopUdp(); }
     void OnApplicationQuit() => StopUdp();
@@ -120,13 +123,11 @@ public class HeartGateway : MonoBehaviour
         {
             if (useBiologicalOrgan && blackHoleBiologicalGateway != null)
             {
-                // ブラックホール風生物学的オーガンシステムを使用
                 Debug.Log($"[HeartGateway] Using black hole biological organ system for switch {msg.switchNo}");
                 blackHoleBiologicalGateway.TriggerSpawn(msg);
             }
             else
             {
-                // 従来の射出システムを使用
                 Debug.Log($"[HeartGateway] Using traditional spawn system for switch {msg.switchNo}");
                 SpawnFromMessage(msg);
             }
@@ -142,7 +143,6 @@ public class HeartGateway : MonoBehaviour
         var pad = emitters[idx];
         if (pad == null) { Debug.LogWarning($"[HeartGateway] Emitter for switch {m.switchNo} missing."); return; }
 
-        // --- プロファイル決定 ------------------------------------
         HeartProfile hp = null;
         bool hasMsgValues = !(Mathf.Approximately(m.hr, 0f) && Mathf.Approximately(m.cv, 0f)
                               && Mathf.Approximately(m.range, 0f) && Mathf.Approximately(m.mean, 0f));
@@ -175,7 +175,6 @@ public class HeartGateway : MonoBehaviour
             hp = HeartDB.Get(null);
         }
 
-        // 射出位置・向き・初速
         Vector2 pos = pad.position;
         Vector2 dir = pad.right;
         if (spreadDeg > 0f)
@@ -186,7 +185,29 @@ public class HeartGateway : MonoBehaviour
         float spd = Mathf.Max(0f, baseSpeed + UnityEngine.Random.Range(-speedJitter, speedJitter));
         Vector2 vel = dir.normalized * spd;
 
-        manager.Spawn(hp, pos, vel);
+        var agent = manager.Spawn(hp, pos, vel);
+        if (agent != null)
+        {
+            ApplyInputOverrides(m, agent);
+        }
+    }
+
+    public void ApplyInputOverrides(HeartInput input, HeartAgent agent)
+    {
+        if (input == null || agent == null) return;
+
+        if (input.hasHue)
+        {
+            var visual = agent.GetComponent<HeartVisual>();
+            if (visual != null)
+            {
+                float _, s, v;
+                Color.RGBToHSV(visual.color, out _, out s, out v);
+                float hue = Mathf.Repeat(input.hue, 1f);
+                visual.color = Color.HSVToRGB(hue, s, v);
+                visual.RefreshMaterial();
+            }
+        }
     }
 
     void StartUdp()
@@ -209,11 +230,11 @@ public class HeartGateway : MonoBehaviour
     void StopUdp()
     {
         running = false;
-        try { udp?.Close(); } catch {}
+        try { udp?.Close(); } catch { }
         udp = null;
         if (thread != null)
         {
-            try { thread.Join(200); } catch {}
+            try { thread.Join(200); } catch { }
             thread = null;
         }
     }
@@ -247,7 +268,7 @@ public class HeartGateway : MonoBehaviour
             var dir = t.right * 0.8f;
             Gizmos.DrawLine(t.position, t.position + dir);
             var left = Quaternion.Euler(0, 0, 150) * dir * 0.25f;
-            var right= Quaternion.Euler(0, 0,-150) * dir * 0.25f;
+            var right = Quaternion.Euler(0, 0, -150) * dir * 0.25f;
             Gizmos.DrawLine(t.position + dir, t.position + dir + left);
             Gizmos.DrawLine(t.position + dir, t.position + dir + right);
         }
