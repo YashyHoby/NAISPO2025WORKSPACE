@@ -1,0 +1,450 @@
+--- a/Assets/Scripts/Core/Appearance/HeartVisual.cs
++++ b/Assets/Scripts/Core/Appearance/HeartVisual.cs
+@@
+     [Header("Global Color Adjustments")]
+     [Range(0.0f, 2.0f)] public float brightnessMultiplier = 1.0f;
+     [Range(0.0f, 2.0f)] public float saturationMultiplier = 1.0f;
+     [Range(-1.0f, 1.0f)] public float hueShift = 0.0f;
+     [Range(0.0f, 1.5f)] public float alphaMultiplier = 1.0f;
++
++    [Header("Corner Rounding")]
++    public bool cornerRoundingEnabled = true;
++    [Range(60f, 179f)] public float cornerAngleThresholdDeg = 150f;
++    [Range(0.01f, 0.25f)] public float cornerRadiusFraction = 0.10f;
++    [Range(2, 6)] public int cornerSegments = 3;
++    [Range(0f, 1f)] public float roundingIrregularityScale = 0.35f;
+@@
+-    readonly List<Vector2> vertexScratch = new List<Vector2>(16);
+-
+-    int  lastAppliedVertexCount = -1;
++    readonly List<Vector2> vertexScratch = new List<Vector2>(16);
++
++    int  lastAppliedVertexCount = -1;
++
++    #pragma warning disable CS0414
++    bool lastWasCircle;
++    #pragma warning restore CS0414
+@@
+-    public int ApplyProceduralShape(ProceduralShapeParameters parameters)
+-    {
+-        Initialize();
+-        EnsureMesh();
+-        if (meshInstance == null) return 0;
+-        int vertexCount = DetermineVertexCount(parameters);
+-        if (vertexCount <= 0)
+-        {
+-            BuildCircleMesh(parameters);
+-            if (mat != null) mat.SetFloat("_IsCircle", 1.0f);
+-            lastAppliedVertexCount = 0;
+-            return 0;
+-        }
+-        BuildPolygonMesh(vertexCount, parameters);
+-        if (mat != null) mat.SetFloat("_IsCircle", 0.0f);
+-        lastAppliedVertexCount = vertexCount;
+-        return vertexCount;
+-    }
+-
+-    int DetermineVertexCount(ProceduralShapeParameters p)
+-    {
+-        if (shapeType == ShapeType.Circle) return 0;
+-        if (shapeType == ShapeType.Triangle) return 3;
+-        if (shapeType == ShapeType.Box)
+-        {
+-            int extra = Mathf.RoundToInt(Mathf.Lerp(0f, 4f, p.irregularity));
+-            return Mathf.Clamp(4 + extra, 4, 8);
+-        }
+-
+-        float selector = Mathf.Clamp01(p.shapeSelector);
+-        int index = Mathf.RoundToInt(selector * (VertexCycle.Length - 1));
+-        int count = VertexCycle[Mathf.Clamp(index, 0, VertexCycle.Length - 1)];
+-        return Mathf.Clamp(count, 3, 10);
+-    }
++    public int ApplyProceduralShape(ProceduralShapeParameters parameters)
++    {
++        Initialize();
++        EnsureMesh();
++        if (meshInstance == null) return 0;
++
++        int vertexCount = DetermineVertexCount(parameters);
++
++        if (vertexCount <= 0)
++        {
++            BuildCircleMesh(parameters);
++            if (mat != null) mat.SetFloat("_IsCircle", 1.0f);
++            lastWasCircle = true;
++            lastAppliedVertexCount = 0;
++            return 0;
++        }
++
++        BuildPolygonMesh(vertexCount, parameters);
++        if (mat != null) mat.SetFloat("_IsCircle", 0.0f);
++        lastWasCircle = false;
++        lastAppliedVertexCount = vertexCount;
++        return vertexCount;
++    }
++
++    int DetermineVertexCount(ProceduralShapeParameters p)
++    {
++        float cycle = Frac(p.shapeSelector + p.normalizedRange * 0.312f + p.normalizedCv * 0.127f);
++        int index = Mathf.Clamp(Mathf.FloorToInt(cycle * VertexCycle.Length), 0, VertexCycle.Length - 1);
++        int count = VertexCycle[index];
++
++        if (count == 0)
++        {
++            float circleBias = Mathf.Lerp(0.25f, 0.75f, 1f - p.normalizedCv);
++            if (p.shapeSelector < circleBias)
++            {
++                return 0;
++            }
++
++            int nextIndex = (index + 1) % VertexCycle.Length;
++            count = VertexCycle[nextIndex];
++        }
++
++        if (count != 0)
++        {
++            float offsetChooser = p.irregularity - 0.5f;
++            if (Mathf.Abs(offsetChooser) > 0.33f)
++            {
++                int offset = offsetChooser > 0f ? 1 : -1;
++                int altIndex = (index + offset + VertexCycle.Length) % VertexCycle.Length;
++                int alt = VertexCycle[altIndex];
++                if (alt != 0)
++                {
++                    count = alt;
++                }
++            }
++        }
++
++        return Mathf.Clamp(count, 3, 12);
++    }
+@@
+-    void GeneratePolygonVertices(int vertexCount, ProceduralShapeParameters p)
+-    {
+-        vertexScratch.Clear();
+-
+-        if (shapeType == ShapeType.Triangle)
+-        {
+-            GenerateTriangleVertices(Mathf.Max(vertexCount, 3), p);
+-        }
+-        else if (shapeType == ShapeType.Box)
+-        {
+-            GenerateBoxVertices(Mathf.Max(vertexCount, 4), p);
+-        }
+-        else
+-        {
+-            GenerateIrregularPolygon(Mathf.Max(vertexCount, 3), p);
+-        }
+-
+-        ApplyPostProcess(vertexScratch, p);
+-        EnsureCounterClockwise(vertexScratch);
+-    }
+-
+-    void GenerateBoxVertices(int vertexCount, ProceduralShapeParameters p)
+-    {
+-        float angle = p.orientation * Mathf.PI * 2f;
+-        Vector2 right = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+-        Vector2 up = new Vector2(-right.y, right.x);
+-
+-        float halfWidth = Mathf.Lerp(0.3f, 0.5f, p.normalizedRange);
+-        float halfHeight = Mathf.Lerp(0.3f, 0.5f, p.normalizedMean);
+-
+-        int[] counts = new int[4];
+-        AllocateEdgeCounts(vertexCount, p, counts);
+-        AppendEdgeVertices(counts, halfWidth, halfHeight, p);
+-    }
+-
+-    void GenerateIrregularPolygon(int vertexCount, ProceduralShapeParameters p)
+-    {
+-        float angleOffset = p.orientation * Mathf.PI * 2f;
+-        float irregularity = Mathf.Lerp(0f, 0.45f, p.irregularity);
+-        float baseRadius = Mathf.Lerp(0.32f, 0.48f, p.normalizedMean);
+-        float rangeScale = Mathf.Lerp(0.85f, 1.1f, p.normalizedRange);
+-
+-        for (int i = 0; i < vertexCount; i++)
+-        {
+-            float t = i / (float)vertexCount;
+-            float angle = angleOffset + t * Mathf.PI * 2f;
+-            float noise = (Hash(p.seed + i * 0.73f) - 0.5f) * irregularity;
+-            float radius = Mathf.Clamp(baseRadius * rangeScale + noise, 0.18f, 0.5f);
+-            vertexScratch.Add(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
+-        }
+-    }
++    void GeneratePolygonVertices(int vertexCount, ProceduralShapeParameters p)
++    {
++        vertexScratch.Clear();
++
++        float halfWidth  = Mathf.Lerp(0.32f, 0.5f, Mathf.Clamp01(p.normalizedRange));
++        float halfHeight = Mathf.Lerp(0.32f, 0.5f, Mathf.Clamp01(p.normalizedMean));
++        float balance    = (p.normalizedCv - 0.5f) * 0.18f;
++
++        halfWidth  = Mathf.Clamp(halfWidth + balance, 0.26f, 0.5f);
++        halfHeight = Mathf.Clamp(halfHeight - balance, 0.26f, 0.5f);
++
++        if (vertexCount < 4)
++        {
++            GenerateTriangleVertices(Mathf.Max(vertexCount, 3), p);
++        }
++        else
++        {
++            int[] counts = new int[4];
++            AllocateEdgeCounts(vertexCount, p, counts);
++            AppendEdgeVertices(counts, halfWidth, halfHeight, p);
++        }
++
++        ApplyPostProcess(vertexScratch, p);
++
++        if (cornerRoundingEnabled && vertexScratch.Count >= 3)
++        {
++            ApplyCornerRounding(vertexScratch, cornerAngleThresholdDeg, cornerRadiusFraction, cornerSegments);
++        }
++
++        EnsureCounterClockwise(vertexScratch);
++    }
++
++    void ApplyCornerRounding(List<Vector2> buffer, float thresholdDeg, float radiusFrac, int segments)
++    {
++        const int maxVertices = 96;
++        int n = buffer.Count;
++        if (n < 3) return;
++
++        List<Vector2> result = new List<Vector2>(Mathf.Min(n * 2, maxVertices));
++
++        for (int i = 0; i < n; i++)
++        {
++            Vector2 prev = buffer[(i - 1 + n) % n];
++            Vector2 curr = buffer[i];
++            Vector2 next = buffer[(i + 1) % n];
++
++            Vector2 dirIn  = curr - prev;
++            Vector2 dirOut = next - curr;
++
++            float len1 = dirIn.magnitude;
++            float len2 = dirOut.magnitude;
++            if (len1 <= 1e-6f || len2 <= 1e-6f)
++            {
++                result.Add(curr);
++                continue;
++            }
++
++            Vector2 nIn  = dirIn / len1;
++            Vector2 nOut = dirOut / len2;
++
++            float crossZ = dirIn.x * dirOut.y - dirIn.y * dirOut.x;
++            float dot = Mathf.Clamp(Vector2.Dot(-nIn, nOut), -1f, 1f);
++            float theta = Mathf.Acos(dot);
++            float angleDeg = theta * Mathf.Rad2Deg;
++
++            bool isConvex = crossZ > 0f;
++            if (isConvex && angleDeg < thresholdDeg)
++            {
++                float rTarget = Mathf.Clamp(Mathf.Min(len1, len2) * Mathf.Max(0.0001f, radiusFrac), 0.0025f, 0.25f);
++                float half = theta * 0.5f;
++                float tanHalf = Mathf.Tan(half);
++                if (tanHalf < 1e-4f)
++                {
++                    result.Add(curr);
++                }
++                else
++                {
++                    float a = Mathf.Min(len1, len2, rTarget / tanHalf);
++                    Vector2 pStart = curr - nIn * a;
++                    Vector2 pEnd   = curr + nOut * a;
++
++                    Vector2 bis = (-nIn + nOut);
++                    float bisLen = bis.magnitude;
++                    if (bisLen < 1e-5f)
++                    {
++                        result.Add(pStart);
++                        result.Add((pStart + pEnd) * 0.5f);
++                        result.Add(pEnd);
++                    }
++                    else
++                    {
++                        bis /= bisLen;
++                        float sinHalf = Mathf.Sin(half);
++                        float radius = Mathf.Min(rTarget, a * tanHalf);
++                        float distToCenter = radius / Mathf.Max(1e-4f, sinHalf);
++                        Vector2 center = curr + bis * distToCenter;
++
++                        int seg = Mathf.Clamp(segments, 2, 6);
++                        Vector2 vStart = pStart - center;
++                        Vector2 vEnd   = pEnd - center;
++                        float ang0 = Mathf.Atan2(vStart.y, vStart.x);
++                        float ang1 = Mathf.Atan2(vEnd.y,   vEnd.x);
++                        float delta = Mathf.DeltaAngle(ang0 * Mathf.Rad2Deg, ang1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;
++
++                        for (int s = 0; s <= seg; s++)
++                        {
++                            float t = (float)s / seg;
++                            float aRad = ang0 + delta * t;
++                            Vector2 p = center + new Vector2(Mathf.Cos(aRad), Mathf.Sin(aRad)) * vStart.magnitude;
++                            result.Add(p);
++                            if (result.Count >= maxVertices) break;
++                        }
++                    }
++                }
++            }
++            else
++            {
++                result.Add(curr);
++            }
++
++            if (result.Count >= maxVertices) break;
++        }
++
++        if (result.Count >= 3)
++        {
++            buffer.Clear();
++            buffer.AddRange(result);
++        }
++    }
++
++    void GenerateTriangleVertices(int count, ProceduralShapeParameters p)
++    {
++        float baseRadius = Mathf.Clamp(Mathf.Lerp(0.28f, 0.48f, p.normalizedRange * 0.65f + p.normalizedMean * 0.35f), 0.24f, 0.5f);
++        float seedBase   = p.seed * 9.71f + count * 0.37f;
++        float baseAngle  = (p.shapeSelector * 2f - 1f) * Mathf.PI;
++
++        for (int i = 0; i < count; i++)
++        {
++            float t = i / (float)count;
++            float jitterAngle = (Hash(seedBase + i * 1.917f) - 0.5f) * 0.6f / count;
++            float angle = baseAngle + (t + jitterAngle) * Mathf.PI * 2f;
++            float radiusVariation = (Hash(seedBase + i * 2.618f) - 0.5f) * Mathf.Lerp(0.05f, 0.18f, p.irregularity);
++            float rad = Mathf.Clamp(baseRadius + radiusVariation, 0.22f, 0.5f);
++            vertexScratch.Add(new Vector2(Mathf.Cos(angle) * rad, Mathf.Sin(angle) * rad));
++        }
++    }
++
++    void AllocateEdgeCounts(int vertexCount, ProceduralShapeParameters p, int[] counts)
++    {
++        for (int i = 0; i < 4; i++) counts[i] = 1;
++
++        int remaining = vertexCount - 4;
++        if (remaining <= 0) return;
++
++        float[] weights =
++        {
++            Mathf.Max(0.01f, p.normalizedHr),
++            Mathf.Max(0.01f, p.normalizedMean),
++            Mathf.Max(0.01f, p.normalizedRange),
++            Mathf.Max(0.01f, p.normalizedCv)
++        };
++
++        float total = weights[0] + weights[1] + weights[2] + weights[3];
++        float[] fractional = new float[4];
++        int assigned = 0;
++
++        for (int i = 0; i < 4; i++)
++        {
++            float norm = weights[i] / total;
++            float exact = norm * remaining;
++            int extra = Mathf.FloorToInt(exact);
++            counts[i] += extra;
++            assigned += extra;
++            fractional[i] = exact - extra;
++        }
++
++        int left = remaining - assigned;
++        while (left > 0)
++        {
++            int pick = 0;
++            float best = fractional[0];
++            for (int i = 1; i < 4; i++)
++            {
++                if (fractional[i] > best)
++                {
++                    best = fractional[i];
++                    pick = i;
++                }
++            }
++
++            counts[pick]++;
++            fractional[pick] = 0f;
++            left--;
++        }
++    }
++
++    void AppendEdgeVertices(int[] counts, float halfWidth, float halfHeight, ProceduralShapeParameters p)
++    {
++        float seedBase = p.seed * 13.37f + halfWidth * 1.91f;
++
++        Vector2 topRight    = new Vector2( halfWidth,  halfHeight);
++        Vector2 topLeft     = new Vector2(-halfWidth,  halfHeight);
++        Vector2 bottomLeft  = new Vector2(-halfWidth, -halfHeight);
++        Vector2 bottomRight = new Vector2( halfWidth, -halfHeight);
++
++        vertexScratch.Add(topRight);
++        AppendEdge(vertexScratch, counts[0], topRight, topLeft, seedBase + 1f, p.irregularity);
++        vertexScratch.Add(topLeft);
++        AppendEdge(vertexScratch, counts[1], topLeft, bottomLeft, seedBase + 2f, p.irregularity);
++        vertexScratch.Add(bottomLeft);
++        AppendEdge(vertexScratch, counts[2], bottomLeft, bottomRight, seedBase + 3f, p.irregularity);
++        vertexScratch.Add(bottomRight);
++        AppendEdge(vertexScratch, counts[3], bottomRight, topRight, seedBase + 4f, p.irregularity);
++
++        if (vertexScratch.Count > 1 && (vertexScratch[vertexScratch.Count - 1] - vertexScratch[0]).sqrMagnitude < 1e-6f)
++        {
++            vertexScratch.RemoveAt(vertexScratch.Count - 1);
++        }
++    }
++
++    void AppendEdge(List<Vector2> buffer, int count, Vector2 start, Vector2 end, float seed, float irregularity)
++    {
++        if (count <= 0) return;
++
++        float step = 1f / (count + 1);
++        float jitterScale = step * (0.3f + irregularity * 0.5f);
++
++        for (int i = 0; i < count; i++)
++        {
++            float t = (i + 1) * step;
++            float jitter = (Hash(seed + i * 0.618f) - 0.5f) * jitterScale;
++            t = Mathf.Clamp01(t + jitter);
++            Vector2 point = Vector2.Lerp(start, end, t);
++            buffer.Add(point);
++        }
++    }
++
++    void ApplyPostProcess(List<Vector2> buffer, ProceduralShapeParameters p)
++    {
++        if (buffer == null || buffer.Count == 0) return;
++
++        float angle = (p.orientation - 0.5f) * Mathf.PI * 2f;
++        float cos = Mathf.Cos(angle);
++        float sin = Mathf.Sin(angle);
++
++        float maxRadius = 0.5f;
++        float irregularAmp = Mathf.Lerp(0.02f, 0.18f, p.irregularity);
++        if (cornerRoundingEnabled)
++        {
++            irregularAmp *= Mathf.Clamp01(roundingIrregularityScale);
++        }
++
++        float seedBase = p.seed * 17.1717f;
++
++        for (int i = 0; i < buffer.Count; i++)
++        {
++            Vector2 v = buffer[i];
++            float noise = (Hash(seedBase + i * 1.318f) - 0.5f) * irregularAmp;
++            if (v.sqrMagnitude > 0.0001f)
++            {
++                v += v.normalized * noise;
++            }
++            else
++            {
++                v += new Vector2(noise, noise);
++            }
++
++            float mag = v.magnitude;
++            if (mag > maxRadius)
++            {
++                v *= maxRadius / mag;
++            }
++
++            float rx = v.x * cos - v.y * sin;
++            float ry = v.x * sin + v.y * cos;
++            buffer[i] = new Vector2(rx, ry);
++        }
++    }

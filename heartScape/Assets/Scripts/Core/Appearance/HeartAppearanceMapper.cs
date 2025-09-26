@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// HeartProfile の値から HeartVisual の見た目（カラー・サイズ・形状など）を算出するマッパー。
@@ -72,7 +72,9 @@ public class HeartAppearanceMapper : MonoBehaviour
         };
 
         int vertexCount = vis.ApplyProceduralShape(shapeParams);
-        vis.shapeType = vertexCount == 0 ? ShapeType.Circle : ShapeType.Box;
+        if (vertexCount <= 0) vis.shapeType = ShapeType.Circle;
+        else if (vertexCount == 3) vis.shapeType = ShapeType.Triangle;
+        else vis.shapeType = ShapeType.Box;
 
         // 3) 色（HSV）
         float hue = Frac(h * hueWeights.x + c * hueWeights.y + r * hueWeights.z);

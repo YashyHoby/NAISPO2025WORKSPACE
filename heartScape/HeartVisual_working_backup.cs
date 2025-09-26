@@ -34,12 +34,6 @@ public class HeartVisual : MonoBehaviour
     [Range(0.0f, 2.0f)] public float saturationMultiplier = 1.0f;
     [Range(-1.0f, 1.0f)] public float hueShift = 0.0f;
     [Range(0.0f, 1.5f)] public float alphaMultiplier = 1.0f;
-    [Header("Corner Rounding")]
-    public bool cornerRoundingEnabled = true;
-    [Range(60f, 179f)] public float cornerAngleThresholdDeg = 150f;
-    [Range(0.01f, 0.25f)] public float cornerRadiusFraction = 0.10f;
-    [Range(2, 6)] public int cornerSegments = 3;
-    [Range(0f, 1f)] public float roundingIrregularityScale = 0.35f;
 
 
     Material        mat;
@@ -64,9 +58,6 @@ public class HeartVisual : MonoBehaviour
     readonly List<Vector2> vertexScratch = new List<Vector2>(16);
 
     int  lastAppliedVertexCount = -1;
-    #pragma warning disable CS0414
-    bool lastWasCircle;
-    #pragma warning restore CS0414
 
     static readonly int[] VertexCycle =
     {
@@ -161,64 +152,39 @@ public class HeartVisual : MonoBehaviour
         mat.SetFloat("_FresnelPower", fresnelPower);
     }
 
-        public int ApplyProceduralShape(ProceduralShapeParameters parameters)
+    public int ApplyProceduralShape(ProceduralShapeParameters parameters)
     {
         Initialize();
         EnsureMesh();
         if (meshInstance == null) return 0;
-
         int vertexCount = DetermineVertexCount(parameters);
-
         if (vertexCount <= 0)
         {
             BuildCircleMesh(parameters);
             if (mat != null) mat.SetFloat("_IsCircle", 1.0f);
-            lastWasCircle = true;
             lastAppliedVertexCount = 0;
             return 0;
         }
-
         BuildPolygonMesh(vertexCount, parameters);
         if (mat != null) mat.SetFloat("_IsCircle", 0.0f);
-        lastWasCircle = false;
         lastAppliedVertexCount = vertexCount;
         return vertexCount;
     }
 
-        int DetermineVertexCount(ProceduralShapeParameters p)
+    int DetermineVertexCount(ProceduralShapeParameters p)
     {
-        float cycle = Frac(p.shapeSelector + p.normalizedRange * 0.312f + p.normalizedCv * 0.127f);
-        int index = Mathf.Clamp(Mathf.FloorToInt(cycle * VertexCycle.Length), 0, VertexCycle.Length - 1);
-        int count = VertexCycle[index];
-
-        if (count == 0)
+        if (shapeType == ShapeType.Circle) return 0;
+        if (shapeType == ShapeType.Triangle) return 3;
+        if (shapeType == ShapeType.Box)
         {
-            float circleBias = Mathf.Lerp(0.25f, 0.75f, 1f - p.normalizedCv);
-            if (p.shapeSelector < circleBias)
-            {
-                return 0;
-            }
-
-            int nextIndex = (index + 1) % VertexCycle.Length;
-            count = VertexCycle[nextIndex];
+            int extra = Mathf.RoundToInt(Mathf.Lerp(0f, 4f, p.irregularity));
+            return Mathf.Clamp(4 + extra, 4, 8);
         }
 
-        if (count != 0)
-        {
-            float offsetChooser = p.irregularity - 0.5f;
-            if (Mathf.Abs(offsetChooser) > 0.33f)
-            {
-                int offset = offsetChooser > 0f ? 1 : -1;
-                int altIndex = (index + offset + VertexCycle.Length) % VertexCycle.Length;
-                int alt = VertexCycle[altIndex];
-                if (alt != 0)
-                {
-                    count = alt;
-                }
-            }
-        }
-
-        return Mathf.Clamp(count, 3, 12);
+        float selector = Mathf.Clamp01(p.shapeSelector);
+        int index = Mathf.RoundToInt(selector * (VertexCycle.Length - 1));
+        int count = VertexCycle[Mathf.Clamp(index, 0, VertexCycle.Length - 1)];
+        return Mathf.Clamp(count, 3, 10);
     }
 
     void BuildCircleMesh(ProceduralShapeParameters p)
@@ -607,9 +573,5 @@ public class HeartVisual : MonoBehaviour
         mat.SetInt("_VertexCount", pointCount);
     }
 }
-
-
-
-
 
 
