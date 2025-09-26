@@ -78,7 +78,7 @@ public class SimpleFireworkSystem : MonoBehaviour
     private List<FireworkParticle> particles = new List<FireworkParticle>();
     private List<Color> liquidColors = new List<Color>();
     private bool isActive = false;
-    private bool hasCreatedParticles = false; // パーティクル生成済みフラグ
+    // private bool hasCreatedParticles = false; // 将来の拡張用 // パーティクル生成済みフラグ
     
     // パーティクルデータ構造
     [System.Serializable]
@@ -132,7 +132,7 @@ public class SimpleFireworkSystem : MonoBehaviour
         {
             CreateParticle(i);
         }
-        hasCreatedParticles = true;
+        // hasCreatedParticles = true; // 将来の拡張用
     }
     
     /// <summary>

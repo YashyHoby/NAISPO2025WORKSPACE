@@ -108,7 +108,7 @@ public class AbsorberFloatingPhysics : MonoBehaviour
         // 自動でFlowManagerを取得
         if (flowManager == null)
         {
-            flowManager = FindObjectOfType<FlowManager2D>();
+            flowManager = FindFirstObjectByType<FlowManager2D>();
         }
         
         // 初期位置を記録

@@ -119,7 +119,7 @@ public class WallColliderFixer : MonoBehaviour
     public void FixAllWallColliders()
     {
         // シーン内のすべてのオブジェクトをチェック
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         
         foreach (GameObject obj in allObjects)
         {

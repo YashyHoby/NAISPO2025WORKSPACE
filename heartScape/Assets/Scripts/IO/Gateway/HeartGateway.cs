@@ -4,11 +4,19 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using HeartScape.IO.Gateway;
 
 public class HeartGateway : MonoBehaviour
 {
     [Header("参照")]
     public HeartManager manager;
+    
+    [Header("生物学的オーガン")]
+    [Tooltip("生物学的オーガンシステムを使用")]
+    public bool useBiologicalOrgan = true;
+    
+    [Tooltip("ブラックホール風生物学的オーガンゲートウェイ")]
+    public BlackHoleBiologicalGateway blackHoleBiologicalGateway;
 
     [Header("エミッタ（A/B/C/D）")]
     [Tooltip("スイッチ A/B/C/D に対応する発射位置。Transform.right が射出方向になります。")]
@@ -43,8 +51,48 @@ public class HeartGateway : MonoBehaviour
     void Awake()
     {
         HeartDB.Load();
+        
+        // ブラックホール風生物学的オーガンゲートウェイを自動設定
+        if (useBiologicalOrgan)
+        {
+            if (blackHoleBiologicalGateway == null)
+            {
+                blackHoleBiologicalGateway = GetComponent<BlackHoleBiologicalGateway>();
+                if (blackHoleBiologicalGateway == null)
+                {
+                    // コンポーネントが存在しない場合は追加
+                    blackHoleBiologicalGateway = gameObject.AddComponent<BlackHoleBiologicalGateway>();
+                    Debug.Log("[HeartGateway] BlackHoleBiologicalGateway component added automatically");
+                }
+                else
+                {
+                    Debug.Log("[HeartGateway] BlackHoleBiologicalGateway component found");
+                }
+            }
+            
+            // BlackHoleEmitterVisualは各Emitterに自動で追加される
+            
+            Debug.Log($"[HeartGateway] Black hole biological organ system enabled - Gateway: {blackHoleBiologicalGateway != null}");
+        }
+        else
+        {
+            Debug.Log("[HeartGateway] Using traditional spawn system");
+        }
     }
 
+    void Start()
+    {
+        // Startで参照を再確認
+        if (useBiologicalOrgan && blackHoleBiologicalGateway == null)
+        {
+            blackHoleBiologicalGateway = GetComponent<BlackHoleBiologicalGateway>();
+            if (blackHoleBiologicalGateway != null)
+            {
+                Debug.Log("[HeartGateway] BlackHoleBiologicalGateway reference restored in Start");
+            }
+        }
+    }
+    
     void OnEnable()  { if (useUdp) StartUdp(); }
     void OnDisable() { StopUdp(); }
     void OnApplicationQuit() => StopUdp();
@@ -57,7 +105,20 @@ public class HeartGateway : MonoBehaviour
     void Update()
     {
         while (queue.TryDequeue(out var msg))
-            SpawnFromMessage(msg);
+        {
+            if (useBiologicalOrgan && blackHoleBiologicalGateway != null)
+            {
+                // ブラックホール風生物学的オーガンシステムを使用
+                Debug.Log($"[HeartGateway] Using black hole biological organ system for switch {msg.switchNo}");
+                blackHoleBiologicalGateway.TriggerSpawn(msg);
+            }
+            else
+            {
+                // 従来の射出システムを使用
+                Debug.Log($"[HeartGateway] Using traditional spawn system for switch {msg.switchNo}");
+                SpawnFromMessage(msg);
+            }
+        }
     }
 
     void SpawnFromMessage(HeartInput m)
