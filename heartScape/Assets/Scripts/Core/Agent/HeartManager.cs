@@ -1,39 +1,42 @@
-using UnityEngine;
+﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class HeartManager : MonoBehaviour
 {
+    [Header("Appearance")]
     public HeartAppearanceMapper appearance;
-    public List<HeartAgent> agents = new();
     public GameObject agentPrefab;
-    public int   maxAgents = 140;
 
+    [Header("Limits")]
+    [Min(1)] public int maxAgents = 140; // hard cap to avoid runaway instantiation
+    [Tooltip("Maximum active agents kept in the scene. Oldest ones shrink away when exceeded.")]
+    public int maxActiveAgents = 30;
+    [Tooltip("Maximum simultaneous agents that share the same logical id.")]
+    public int maxAgentsPerId = 5;
+    [Tooltip("Duration used when shrinking and removing excess agents.")]
+    public float removalShrinkDuration = 0.35f;
+
+    [Header("Offscreen Despawn")]
     public bool despawnOffscreen = false;
     public Vector2 despawnExtents = new Vector2(10f, 6f); // ±X, ±Y
-    
-    [Header("軌跡システム")]
-    [Tooltip("軌跡システムへの参照")]
+
+    [Header("Trail System")]
+    [Tooltip("Reference to the trail system controller.")]
     public HeartTrailSystem trailSystem;
-    
-    [Header("心オブジェクト色調整")]
-    [Tooltip("全心オブジェクトの明度調整")]
-    [Range(0.0f, 2.0f)]
-    public float globalBrightness = 1.0f;
-    
-    [Tooltip("全心オブジェクトの彩度調整")]
-    [Range(0.0f, 2.0f)]
-    public float globalSaturation = 1.0f;
-    
-    [Tooltip("全心オブジェクトの色相調整")]
-    [Range(-1.0f, 1.0f)]
-    public float globalHueShift = 0.0f;
-    
-    [Tooltip("全心オブジェクトの透明度調整")]
-    [Range(0.0f, 1.0f)]
-    public float globalAlpha = 1.0f;
-    
-    [Tooltip("色調整をリアルタイムで適用")]
+
+    [Header("Global Color Adjustments")]
+    [Range(0.0f, 2.0f)] public float globalBrightness = 1.0f;
+    [Range(0.0f, 2.0f)] public float globalSaturation = 1.0f;
+    [Range(-1.0f, 1.0f)] public float globalHueShift = 0.0f;
+    [Range(0.0f, 1.0f)] public float globalAlpha = 1.0f;
     public bool applyColorAdjustments = true;
+
+    public List<HeartAgent> agents = new();
+
+    readonly Dictionary<int, Queue<HeartAgent>> agentsById = new();
+    readonly LinkedList<HeartAgent> spawnOrder = new();
+    readonly Dictionary<HeartAgent, Coroutine> removalRoutines = new();
 
     void Awake()
     {
@@ -47,9 +50,13 @@ public class HeartManager : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (despawnOffscreen) DespawnOffscreen();
-        
-        // 色調整をリアルタイムで適用
+        CleanupSpawnOrder();
+
+        if (despawnOffscreen)
+        {
+            DespawnOffscreen();
+        }
+
         if (applyColorAdjustments)
         {
             ApplyGlobalColorAdjustments();
@@ -61,74 +68,237 @@ public class HeartManager : MonoBehaviour
         if (agents.Count >= maxAgents || agentPrefab == null) return null;
 
         var go = Instantiate(agentPrefab, pos, Quaternion.identity);
-        var a  = go.GetComponent<HeartAgent>();
+        var agent = go.GetComponent<HeartAgent>();
+        if (agent == null)
+        {
+            Debug.LogWarning("[HeartManager] Agent prefab is missing HeartAgent component.");
+            Destroy(go);
+            return null;
+        }
 
-        a.profile = hp;
-        a.id      = Random.Range(int.MinValue, int.MaxValue);
+        agent.owner = this;
+        agent.profile = hp;
 
-        var vis = go.GetComponent<HeartVisual>();
-        if (vis)
+        if (hp != null && !string.IsNullOrEmpty(hp.uid))
+        {
+            agent.id = hp.uid.GetHashCode();
+        }
+        else if (agent.id == 0)
+        {
+            agent.id = Random.Range(int.MinValue, int.MaxValue);
+        }
+
+        var visual = go.GetComponent<HeartVisual>();
+        if (visual != null)
         {
             if (appearance != null)
             {
-                appearance.Apply(hp, vis); // 形/色/半径（半径は appearance.setRadiusOnSpawn 次第）
+                appearance.Apply(hp, visual);
             }
             else
             {
-                vis.color = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
+                visual.color = Color.HSVToRGB(Mathf.InverseLerp(50, 120, hp.hr), 0.75f, 1f);
             }
         }
 
-        var gr = go.GetComponent<HeartGrowth>();
-        if (gr)
+        var growth = go.GetComponent<HeartGrowth>();
+        if (growth != null)
         {
-            // Mapperで半径を決める運用なら Growth による初期上書きをスキップ
             bool mapperSetsRadius = (appearance != null && appearance.setRadiusOnSpawn);
             if (!mapperSetsRadius)
             {
-                gr.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
-                gr.growthStage = 0;
-                gr.ApplyStageScale(); // visual.radius を更新
+                growth.baseRadius  = Mathf.Lerp(0.45f, 0.7f, Mathf.Clamp01(hp.mean / 120f));
+                growth.growthStage = 0;
+                growth.ApplyStageScale();
             }
         }
 
         var rb = go.GetComponent<Rigidbody2D>();
-        if (rb) rb.linearVelocity = vel;   // 旧Unityなら rb.velocity
+        if (rb != null)
+        {
+            rb.linearVelocity = vel;
+        }
 
-        agents.Add(a);
-        
-        // 軌跡システムにエージェントを登録
+        agents.Add(agent);
+        RegisterAgent(agent);
+
         if (trailSystem != null)
         {
-            trailSystem.OnAgentSpawned(a);
+            trailSystem.OnAgentSpawned(agent);
         }
-        
+
         HeartSoundManager.Instance?.PlaySpawn(pos);
 
-        return a;
+        return agent;
     }
-    
-    /// <summary>
-    /// 全心オブジェクトに色調整を適用
-    /// </summary>
-    void ApplyGlobalColorAdjustments()
+
+    internal void NotifyAgentDestroyed(HeartAgent agent)
     {
-        foreach (var agent in agents)
+        if (agent == null) return;
+
+        agents.Remove(agent);
+        spawnOrder.Remove(agent);
+        removalRoutines.Remove(agent);
+        RemoveFromIdQueue(agent);
+
+        if (trailSystem != null)
         {
-            if (agent == null) continue;
-            
-            HeartVisual visual = agent.GetComponent<HeartVisual>();
+            trailSystem.OnAgentDestroyed(agent);
+        }
+    }
+
+    void RegisterAgent(HeartAgent agent)
+    {
+        if (agent == null) return;
+
+        spawnOrder.AddLast(agent);
+
+        if (!agentsById.TryGetValue(agent.id, out var queue))
+        {
+            queue = new Queue<HeartAgent>();
+            agentsById[agent.id] = queue;
+        }
+        queue.Enqueue(agent);
+
+        EnforcePerIdLimit(agent.id);
+        EnforceGlobalLimit();
+    }
+
+    void EnforcePerIdLimit(int id)
+    {
+        if (maxAgentsPerId <= 0) return;
+        if (!agentsById.TryGetValue(id, out var queue)) return;
+
+        CleanupQueue(queue);
+        while (queue.Count > maxAgentsPerId)
+        {
+            var oldest = queue.Dequeue();
+            ScheduleRemoval(oldest);
+        }
+    }
+
+    void EnforceGlobalLimit()
+    {
+        if (maxActiveAgents <= 0) return;
+
+        CleanupSpawnOrder();
+        while (spawnOrder.Count > maxActiveAgents)
+        {
+            var oldest = spawnOrder.First?.Value;
+            spawnOrder.RemoveFirst();
+            ScheduleRemoval(oldest);
+        }
+    }
+
+    void ScheduleRemoval(HeartAgent agent)
+    {
+        if (agent == null) return;
+        if (removalRoutines.ContainsKey(agent)) return;
+
+        RemoveFromCollections(agent);
+
+        var routine = StartCoroutine(ShrinkAndDestroy(agent, removalShrinkDuration));
+        removalRoutines[agent] = routine;
+    }
+
+    IEnumerator ShrinkAndDestroy(HeartAgent agent, float duration)
+    {
+        if (agent == null) yield break;
+
+        var visual = agent.GetComponent<HeartVisual>();
+        var physics = agent.GetComponent<HeartPhysics>();
+        float initialRadius = visual != null ? visual.radius : 0f;
+        float timer = 0f;
+        float safeDuration = Mathf.Max(0.01f, duration);
+
+        if (physics != null)
+        {
+            physics.enabled = false;
+        }
+
+        while (agent != null && timer < safeDuration)
+        {
+            float t = timer / safeDuration;
             if (visual != null)
             {
-                // グローバル色調整を適用
-                visual.brightnessMultiplier = globalBrightness;
-                visual.saturationMultiplier = globalSaturation;
-                visual.hueShift = globalHueShift;
-                visual.alphaMultiplier = globalAlpha;
+                float newRadius = Mathf.Lerp(initialRadius, 0f, t);
+                visual.SetRadius(Mathf.Max(0.001f, newRadius));
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        if (agent != null)
+        {
+            Destroy(agent.gameObject);
+        }
+
+        removalRoutines.Remove(agent);
+    }
+
+    void RemoveFromCollections(HeartAgent agent)
+    {
+        agents.Remove(agent);
+        spawnOrder.Remove(agent);
+        RemoveFromIdQueue(agent);
+    }
+
+    void RemoveFromIdQueue(HeartAgent agent)
+    {
+        if (agent == null) return;
+        if (!agentsById.TryGetValue(agent.id, out var queue)) return;
+        if (queue.Count == 0) return;
+
+        var temp = new Queue<HeartAgent>(queue.Count);
+        while (queue.Count > 0)
+        {
+            var existing = queue.Dequeue();
+            if (existing != null && existing != agent)
+            {
+                temp.Enqueue(existing);
+            }
+        }
+
+        if (temp.Count > 0)
+        {
+            agentsById[agent.id] = temp;
+        }
+        else
+        {
+            agentsById.Remove(agent.id);
+        }
+    }
+
+    void CleanupQueue(Queue<HeartAgent> queue)
+    {
+        if (queue == null || queue.Count == 0) return;
+
+        int count = queue.Count;
+        for (int i = 0; i < count; i++)
+        {
+            var agent = queue.Dequeue();
+            if (agent != null)
+            {
+                queue.Enqueue(agent);
             }
         }
     }
-    
+
+    void CleanupSpawnOrder()
+    {
+        var node = spawnOrder.First;
+        while (node != null)
+        {
+            var next = node.Next;
+            if (node.Value == null)
+            {
+                spawnOrder.Remove(node);
+            }
+            node = next;
+        }
+    }
+
+
     /// <summary>
     /// 外部から色調整を設定
     /// </summary>
@@ -140,42 +310,79 @@ public class HeartManager : MonoBehaviour
         globalAlpha = alpha;
     }
 
+    void ApplyGlobalColorAdjustments()
+    {
+        for (int i = agents.Count - 1; i >= 0; i--)
+        {
+            var agent = agents[i];
+            if (agent == null)
+            {
+                agents.RemoveAt(i);
+                continue;
+            }
+
+            HeartVisual visual = agent.GetComponent<HeartVisual>();
+            if (visual != null)
+            {
+                visual.brightnessMultiplier = globalBrightness;
+                visual.saturationMultiplier = globalSaturation;
+                visual.hueShift = globalHueShift;
+                visual.alphaMultiplier = globalAlpha;
+            }
+        }
+    }
+
     void DespawnOffscreen()
     {
         for (int i = agents.Count - 1; i >= 0; i--)
         {
-            var a = agents[i];
-            if (!a) { agents.RemoveAt(i); continue; }
+            var agent = agents[i];
+            if (agent == null)
+            {
+                agents.RemoveAt(i);
+                continue;
+            }
 
-            var p = a.transform.position;
+            Vector3 p = agent.transform.position;
             if (Mathf.Abs(p.x) > despawnExtents.x || Mathf.Abs(p.y) > despawnExtents.y)
             {
-                // 軌跡システムからエージェントを登録解除
-                if (trailSystem != null)
-                {
-                    trailSystem.OnAgentDestroyed(a);
-                }
-                
-                Destroy(a.gameObject);
-                agents.RemoveAt(i);
+                DestroyAgentImmediate(agent);
             }
         }
+    }
+
+    void DestroyAgentImmediate(HeartAgent agent)
+    {
+        if (agent == null) return;
+
+        if (removalRoutines.TryGetValue(agent, out var routine))
+        {
+            if (routine != null)
+            {
+                StopCoroutine(routine);
+            }
+            removalRoutines.Remove(agent);
+        }
+
+        RemoveFromCollections(agent);
+
+        Destroy(agent.gameObject);
     }
 
     public void ClearAll()
     {
         for (int i = agents.Count - 1; i >= 0; i--)
         {
-            if (agents[i] != null)
+            var agent = agents[i];
+            if (agent != null)
             {
-                // 軌跡システムからエージェントを登録解除
-                if (trailSystem != null)
-                {
-                    trailSystem.OnAgentDestroyed(agents[i]);
-                }
-                Destroy(agents[i].gameObject);
+                DestroyAgentImmediate(agent);
             }
         }
+
         agents.Clear();
+        spawnOrder.Clear();
+        agentsById.Clear();
+        removalRoutines.Clear();
     }
 }

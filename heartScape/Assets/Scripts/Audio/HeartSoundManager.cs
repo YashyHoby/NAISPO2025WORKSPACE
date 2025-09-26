@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -13,6 +14,12 @@ public class HeartSoundManager : MonoBehaviour
     [SerializeField] AudioMixerGroup outputMixer;
     [SerializeField, Range(0f, 1f)] float spatialBlend = 0f;
     [SerializeField] bool persistent = false;
+
+    [Header("Background Music")]
+    [SerializeField] bool playBgmOnStart = false;
+    [SerializeField] bool loopBgmPlaylist = true;
+    [SerializeField, Min(0f)] float defaultBgmGapSeconds = 1f;
+    [SerializeField] List<BgmTrack> bgmTracks = new();
 
     [Header("Wall Detection")]
     [SerializeField] LayerMask wallLayers = 0;
@@ -36,6 +43,9 @@ public class HeartSoundManager : MonoBehaviour
     [SerializeField, Range(0f, 2f)] float spawnVolume = 0.8f;
     [SerializeField] AudioClip absorbClip;
     [SerializeField, Range(0f, 2f)] float absorbVolume = 1f;
+    [SerializeField] AudioClip absorberBurstClip;
+    [SerializeField, Range(0f, 2f)] float absorberBurstVolume = 1f;
+    [SerializeField, Range(0f, 4f)] float absorberBurstDelay = 0f;
 
     [Header("Bumper Clips")]
     [SerializeField] List<BumperClip> bumperClips = new();
@@ -49,6 +59,10 @@ public class HeartSoundManager : MonoBehaviour
     readonly Dictionary<string, BumperClip> bumperMap = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, MaterialClip> materialMap = new(StringComparer.OrdinalIgnoreCase);
     int nextSource;
+
+    AudioSource bgmSource;
+    Coroutine bgmRoutine;
+    int bgmIndex;
 
     void Awake()
     {
@@ -67,7 +81,34 @@ public class HeartSoundManager : MonoBehaviour
         }
 
         SetupSources();
+        EnsureBgmSource();
         RebuildLookups();
+
+        if (playBgmOnStart && bgmTracks.Count > 0)
+        {
+            StartBgmPlaylist();
+        }
+    }
+
+    void OnEnable()
+    {
+        if (playBgmOnStart && bgmTracks.Count > 0 && bgmRoutine == null)
+        {
+            StartBgmPlaylist();
+        }
+    }
+
+    void OnDisable()
+    {
+        StopBgmPlaylist();
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     void OnValidate()
@@ -75,6 +116,21 @@ public class HeartSoundManager : MonoBehaviour
         poolSize = Mathf.Max(1, poolSize);
         SetupSources();
         RebuildLookups();
+
+        if (Application.isPlaying)
+        {
+            EnsureBgmSource();
+        }
+        else
+        {
+            var existing = transform.Find("HeartSoundManager_BGM");
+            if (existing != null)
+            {
+                bgmSource = existing.GetComponent<AudioSource>();
+            }
+        }
+
+        ConfigureBgmSource(bgmSource);
     }
 
     void SetupSources()
@@ -90,7 +146,7 @@ public class HeartSoundManager : MonoBehaviour
 
         sources.Clear();
         var existing = GetComponents<AudioSource>();
-        for (int i = 0; i < existing.Length; i++)
+        for (int i = 0; i < existing.Length && sources.Count < poolSize; i++)
         {
             ConfigureSource(existing[i]);
             sources.Add(existing[i]);
@@ -106,7 +162,42 @@ public class HeartSoundManager : MonoBehaviour
         nextSource = 0;
     }
 
+    void EnsureBgmSource()
+    {
+        if (bgmSource != null) return;
+
+        Transform found = transform.Find("HeartSoundManager_BGM");
+        if (found != null)
+        {
+            bgmSource = found.GetComponent<AudioSource>();
+            if (bgmSource == null)
+            {
+                bgmSource = found.gameObject.AddComponent<AudioSource>();
+            }
+        }
+        else
+        {
+            var go = new GameObject("HeartSoundManager_BGM");
+            go.transform.SetParent(transform);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+            bgmSource = go.AddComponent<AudioSource>();
+        }
+
+        ConfigureBgmSource(bgmSource);
+    }
+
     void ConfigureSource(AudioSource src)
+    {
+        if (src == null) return;
+        src.playOnAwake = false;
+        src.loop = false;
+        src.outputAudioMixerGroup = outputMixer;
+        src.spatialBlend = spatialBlend;
+    }
+
+    void ConfigureBgmSource(AudioSource src)
     {
         if (src == null) return;
         src.playOnAwake = false;
@@ -156,6 +247,102 @@ public class HeartSoundManager : MonoBehaviour
     {
         float t = maxValue > 0f ? Mathf.Clamp01(value / maxValue) : 1f;
         return Mathf.Lerp(range.x, range.y, t);
+    }
+
+    public void StartBgmPlaylist()
+    {
+        if (bgmTracks == null || bgmTracks.Count == 0)
+        {
+            Debug.LogWarning("[HeartSoundManager] BGM playlist is empty.");
+            return;
+        }
+
+        EnsureBgmSource();
+
+        if (bgmRoutine != null)
+        {
+            StopCoroutine(bgmRoutine);
+        }
+
+        bgmIndex = Mathf.Clamp(bgmIndex, 0, Mathf.Max(0, bgmTracks.Count - 1));
+        bgmRoutine = StartCoroutine(BgmPlaylistRoutine());
+    }
+
+    public void StopBgmPlaylist()
+    {
+        if (bgmRoutine != null)
+        {
+            StopCoroutine(bgmRoutine);
+            bgmRoutine = null;
+        }
+
+        if (bgmSource != null)
+        {
+            bgmSource.Stop();
+        }
+    }
+
+    IEnumerator BgmPlaylistRoutine()
+    {
+        if (bgmTracks == null || bgmTracks.Count == 0)
+        {
+            yield break;
+        }
+
+        EnsureBgmSource();
+
+        while (true)
+        {
+            if (bgmIndex < 0 || bgmIndex >= bgmTracks.Count)
+            {
+                if (loopBgmPlaylist)
+                {
+                    bgmIndex = 0;
+                }
+                else
+                {
+                    bgmRoutine = null;
+                    yield break;
+                }
+            }
+
+            var entry = bgmTracks[bgmIndex];
+            if (entry != null && entry.clip != null && bgmSource != null)
+            {
+                bgmSource.clip = entry.clip;
+                bgmSource.volume = Mathf.Clamp01(entry.volume);
+                bgmSource.Play();
+
+                while (bgmSource.isPlaying)
+                {
+                    yield return null;
+                }
+
+                float gap = entry.gapSeconds >= 0f ? entry.gapSeconds : defaultBgmGapSeconds;
+                if (gap > 0f)
+                {
+                    yield return new WaitForSeconds(gap);
+                }
+            }
+            else
+            {
+                yield return null;
+            }
+
+            bgmIndex++;
+            if (bgmIndex >= bgmTracks.Count && !loopBgmPlaylist)
+            {
+                break;
+            }
+        }
+
+        bgmRoutine = null;
+    }
+
+    public void RequestBgmRestart(int startIndex = 0)
+    {
+        bgmIndex = Mathf.Clamp(startIndex, 0, Mathf.Max(0, (bgmTracks?.Count ?? 1) - 1));
+        StartBgmPlaylist();
     }
 
     public void OnHeartCollision(HeartPhysics self, Collision2D collision, float impactSpeed)
@@ -209,6 +396,16 @@ public class HeartSoundManager : MonoBehaviour
     public void PlayAbsorb(Vector3 position)
     {
         PlayClip(absorbClip, absorbVolume);
+    }
+
+    public void PlayAbsorberBurst(Vector3 position, float delayOverride = -1f, AudioClip clipOverride = null, float volumeOverride = -1f)
+    {
+        var clip = clipOverride != null ? clipOverride : absorberBurstClip;
+        if (clip == null) return;
+
+        float volume = volumeOverride >= 0f ? volumeOverride : absorberBurstVolume;
+        float delay = delayOverride >= 0f ? delayOverride : absorberBurstDelay;
+        PlayClipDelayed(clip, volume, 1f, delay);
     }
 
     public void PlayBubbleBurst(Vector3 position)
@@ -269,12 +466,35 @@ public class HeartSoundManager : MonoBehaviour
 
     void PlayClip(AudioClip clip, float volume, float pitch = 1f)
     {
+        PlayClipDelayed(clip, volume, pitch, 0f);
+    }
+
+    void PlayClipDelayed(AudioClip clip, float volume, float pitch, float delay)
+    {
         if (clip == null) return;
 
+        if (delay <= 0f)
+        {
+            PlayClipImmediate(clip, volume, pitch);
+        }
+        else
+        {
+            StartCoroutine(PlayClipDelayedRoutine(clip, volume, pitch, delay));
+        }
+    }
+
+    void PlayClipImmediate(AudioClip clip, float volume, float pitch)
+    {
         var source = GetSource();
         source.pitch = Mathf.Clamp(pitch, 0.1f, 3f);
         source.volume = Mathf.Clamp(volume, 0f, 2f);
         source.PlayOneShot(clip);
+    }
+
+    IEnumerator PlayClipDelayedRoutine(AudioClip clip, float volume, float pitch, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        PlayClipImmediate(clip, volume, pitch);
     }
 
     [Serializable]
@@ -292,6 +512,15 @@ public class HeartSoundManager : MonoBehaviour
         public string key = "metal";
         public AudioClip clip;
         [Range(0f, 2f)] public float volume = 0.6f;
+    }
+
+    [Serializable]
+    public class BgmTrack
+    {
+        public AudioClip clip;
+        [Range(0f, 1.5f)] public float volume = 1f;
+        [Tooltip("Gap seconds after this track. Negative uses default gap.")]
+        public float gapSeconds = -1f;
     }
 
     public LayerMask WallLayers => wallLayers;

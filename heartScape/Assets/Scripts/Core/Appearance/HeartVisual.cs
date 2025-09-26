@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,43 +7,19 @@ public enum ShapeType { Circle, Triangle, Box }
 [RequireComponent(typeof(Renderer)), RequireComponent(typeof(MeshFilter))]
 public class HeartVisual : MonoBehaviour
 {
-    [Header("見た目設定")]
+    [Header("髫穂ｹ昶螺騾ｶ・ｮ髫ｪ・ｭ陞ｳ繝ｻ")]
     public ShapeType shapeType = ShapeType.Circle;
     public Color     color     = Color.white;
     public float     radius    = 0.6f;
-    
-    [Header("色調整")]
-    [Tooltip("明度調整（0.0-2.0）")]
-    [Range(0.0f, 2.0f)]
-    public float brightnessMultiplier = 1.0f;
-    
-    [Tooltip("彩度調整（0.0-2.0）")]
-    [Range(0.0f, 2.0f)]
-    public float saturationMultiplier = 1.0f;
-    
-    [Tooltip("色相調整（-1.0-1.0）")]
-    [Range(-1.0f, 1.0f)]
-    public float hueShift = 0.0f;
-    
-    [Tooltip("透明度調整（0.0-1.0）")]
-    [Range(0.0f, 1.0f)]
-    public float alphaMultiplier = 1.0f;
 
-    [Header("角丸設定")]
-    public bool  cornerRoundingEnabled = true;
-    [Range(60f, 179f)] public float cornerAngleThresholdDeg = 150f; // これ未満を角丸
-    [Range(0.01f, 0.25f)] public float cornerRadiusFraction = 0.10f; // エッジ長比
-    [Range(2, 6)] public int cornerSegments = 3; // 円弧分割数
-    [Range(0f, 1f)] public float roundingIrregularityScale = 0.35f; // 角丸時はノイズを弱める
-
-    [Header("参照（任意）")]
+    [Header("陷ｿ繧峨・繝ｻ莠包ｽｻ・ｻ隲｢謫ｾ・ｼ繝ｻ")]
     public HeartProfile profile;
     public HeartAgent   agent;
 
-    [Header("マテリアル設定")]
+    [Header("郢晄ｧｭ繝ｦ郢晢ｽｪ郢ｧ・｢郢晢ｽｫ髫ｪ・ｭ陞ｳ繝ｻ")]
     public Material baseMaterial;
 
-    [Header("ゼリー表現")]
+    [Header("郢ｧ・ｼ郢晢ｽｪ郢晢ｽｼ髯ｦ・ｨ霑ｴ・ｾ")]
     [Range(0f, 0.5f)] public float smoothness = 0.1f;
     [Range(0f, 0.1f)] public float outlineWidth = 0.01f;
     public Color outlineColor = Color.black;
@@ -53,12 +29,23 @@ public class HeartVisual : MonoBehaviour
     public Color fresnelColor = new Color(1,1,1,0.1f);
     [Range(0.1f, 10f)] public float fresnelPower = 2.0f;
 
+    [Header("Global Color Adjustments")]
+    [Range(0.0f, 2.0f)] public float brightnessMultiplier = 1.0f;
+    [Range(0.0f, 2.0f)] public float saturationMultiplier = 1.0f;
+    [Range(-1.0f, 1.0f)] public float hueShift = 0.0f;
+    [Range(0.0f, 1.5f)] public float alphaMultiplier = 1.0f;
+
+
     Material        mat;
     Renderer        rend;
     MeshFilter      meshFilter;
     Mesh            meshInstance;
     CircleCollider2D circleCollider;
     PolygonCollider2D polygonCollider;
+
+    const int MAX_VERTICES = 64; // Must match shader
+    Texture2D _vertexTexture;
+    Color[]   _textureColorData = new Color[MAX_VERTICES];
 
     Vector3 initialScale;
     float   initialColliderRadius;
@@ -71,9 +58,6 @@ public class HeartVisual : MonoBehaviour
     readonly List<Vector2> vertexScratch = new List<Vector2>(16);
 
     int  lastAppliedVertexCount = -1;
-    #pragma warning disable CS0414 // The field is assigned but its value is never used
-    bool lastWasCircle;
-    #pragma warning restore CS0414
 
     static readonly int[] VertexCycle =
     {
@@ -84,112 +68,54 @@ public class HeartVisual : MonoBehaviour
 
     const int CircleSegments = 32;
 
-    public struct ProceduralShapeParameters
-    {
-        public float normalizedHr;
-        public float normalizedCv;
-        public float normalizedRange;
-        public float normalizedMean;
-        public float shapeSelector;
-        public float irregularity;
-        public float orientation;
-        public float seed;
-    }
+    public struct ProceduralShapeParameters { public float normalizedHr, normalizedCv, normalizedRange, normalizedMean, shapeSelector, irregularity, orientation, seed; }
 
-    void Awake()
-    {
-        Initialize();
-    }
-
-    void OnEnable()
-    {
-        Initialize();
-        ApplyRadiusScale(radius);
-    }
+    void Awake() { Initialize(); }
+    void OnEnable() { Initialize(); ApplyRadiusScale(radius); }
 
     void Initialize()
     {
         if (initialized) return;
-
         if (agent == null) agent = GetComponent<HeartAgent>();
-        rend           = GetComponent<Renderer>();
-        meshFilter     = GetComponent<MeshFilter>();
+        rend = GetComponent<Renderer>();
+        meshFilter = GetComponent<MeshFilter>();
         circleCollider = GetComponent<CircleCollider2D>();
         polygonCollider = GetComponent<PolygonCollider2D>();
-
-        if (polygonCollider == null)
-        {
-            polygonCollider = gameObject.AddComponent<PolygonCollider2D>();
-        }
-
-        if (polygonCollider != null)
-        {
-            polygonCollider.isTrigger = circleCollider != null && circleCollider.isTrigger;
-            polygonCollider.pathCount = 0;
-        }
-
-        if (circleCollider != null && polygonCollider != null)
-        {
-            circleCollider.enabled = false;
-        }
-
+        if (polygonCollider == null) polygonCollider = gameObject.AddComponent<PolygonCollider2D>();
+        if (polygonCollider != null) { polygonCollider.isTrigger = circleCollider != null && circleCollider.isTrigger; polygonCollider.pathCount = 0; }
+        if (circleCollider != null && polygonCollider != null) circleCollider.enabled = false;
         polygonColliderPath = Array.Empty<Vector2>();
         circleColliderPath = Array.Empty<Vector2>();
-
-
         initialScale = transform.localScale;
-
         const float minRadius = 0.0001f;
-        float colliderLocalRadius = minRadius;
-        if (circleCollider != null && circleCollider.radius > minRadius)
-        {
-            colliderLocalRadius = circleCollider.radius;
-        }
-        else
-        {
-            colliderLocalRadius = Mathf.Max(radius, minRadius);
-        }
-
+        float colliderLocalRadius = (circleCollider != null && circleCollider.radius > minRadius) ? circleCollider.radius : Mathf.Max(radius, minRadius);
         initialColliderRadius = colliderLocalRadius;
-
         float baseScale = Mathf.Max(initialScale.x, minRadius);
         float worldRadius = colliderLocalRadius * baseScale;
-        if (worldRadius <= minRadius)
-        {
-            worldRadius = Mathf.Max(radius, 0.1f);
-        }
+        if (worldRadius <= minRadius) worldRadius = Mathf.Max(radius, 0.1f);
         initialWorldRadius = worldRadius;
-
         var src = baseMaterial != null ? baseMaterial : (rend != null ? rend.sharedMaterial : null);
-        if (src != null)
-        {
-            mat = new Material(src);
-            if (rend != null) rend.material = mat;
-        }
-        else
-        {
-            Debug.LogWarning("[HeartVisual] Source material not found.", this);
-        }
-
+        if (src != null) { mat = new Material(src); if (rend != null) rend.material = mat; }
+        else { Debug.LogWarning("[HeartVisual] Source material not found.", this); }
         EnsureMesh();
         initialized = true;
+        _vertexTexture = new Texture2D(MAX_VERTICES, 1, TextureFormat.RGFloat, false);
+        _vertexTexture.filterMode = FilterMode.Point;
+        _vertexTexture.wrapMode = TextureWrapMode.Clamp;
     }
 
     void EnsureMesh()
     {
-        if (meshFilter == null)
-        {
-            meshFilter = GetComponent<MeshFilter>();
-        }
-
-        if (meshFilter == null)
-        {
-            return;
-        }
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null) return;
 
         if (meshInstance == null)
         {
-            meshInstance = new Mesh { name = $"{name}_HeartShape" };
+            meshInstance = new Mesh
+            {
+                name = $"{name}_HeartVisualMesh",
+                hideFlags = HideFlags.HideAndDontSave
+            };
             meshInstance.MarkDynamic();
         }
 
@@ -199,568 +125,359 @@ public class HeartVisual : MonoBehaviour
         }
     }
 
-    void Update()
-    {
-        RefreshMaterial(Time.time);
-    }
-
-    public void RefreshMaterial()
-    {
-        RefreshMaterial(Time.time);
-    }
-
-    public void RefreshMaterial(float timeSeconds)
-    {
-        ApplyMaterialState(timeSeconds);
-    }
+    void Update() { RefreshMaterial(Time.time); }
+    public void RefreshMaterial() { RefreshMaterial(Time.time); }
+    public void RefreshMaterial(float timeSeconds) { ApplyMaterialState(timeSeconds); }
 
     void ApplyMaterialState(float timeSeconds)
     {
         Initialize();
-
-        float bpm    = (profile != null) ? profile.hr : 70f;
-        float bpm01  = Mathf.InverseLerp(50f, 120f, bpm);
+        float bpm = (profile != null) ? profile.hr : 70f;
+        float bpm01 = Mathf.InverseLerp(50f, 120f, bpm);
         float beatHz = Mathf.Lerp(1.0f, 2.4f, bpm01);
-        float pulse  = (Mathf.Sin(timeSeconds * beatHz * Mathf.PI * 2f) + 1f) * 0.5f;
-
+        float pulse = (Mathf.Sin(timeSeconds * beatHz * Mathf.PI * 2f) + 1f) * 0.5f;
         if (mat == null) return;
-
-        // 色調整を適用
-        Color adjustedColor = ApplyColorAdjustments(color);
-
-        mat.SetFloat("_Pulse",     pulse);
-        mat.SetFloat("_Radius",    radius);
-        mat.SetColor("_Tint",      adjustedColor);
+        mat.SetFloat("_Pulse", pulse);
+        mat.SetFloat("_Radius", radius);
+        var adjustedColor = ApplyColorAdjustments(color);
+        mat.SetColor("_Tint", adjustedColor);
         mat.SetFloat("_ShapeType", (float)shapeType);
-
-        // Pass Jelly parameters to the shader
-        mat.SetFloat("_Smoothness",    smoothness);
-        mat.SetFloat("_OutlineWidth",  outlineWidth);
-        mat.SetColor("_OutlineColor",  outlineColor);
-        mat.SetFloat("_Refraction",    refraction);
+        mat.SetFloat("_Smoothness", smoothness);
+        mat.SetFloat("_OutlineWidth", outlineWidth);
+        mat.SetColor("_OutlineColor", outlineColor);
+        mat.SetFloat("_Refraction", refraction);
         mat.SetColor("_SpecularColor", specularColor);
-        mat.SetFloat("_Shininess",     shininess);
-        mat.SetColor("_FresnelColor",  fresnelColor);
-        mat.SetFloat("_FresnelPower",  fresnelPower);
-    }
-    
-    /// <summary>
-    /// 色調整を適用して調整された色を返す
-    /// </summary>
-    Color ApplyColorAdjustments(Color originalColor)
-    {
-        // RGBからHSVに変換
-        float h, s, v;
-        Color.RGBToHSV(originalColor, out h, out s, out v);
-        
-        // 色相調整
-        h = (h + hueShift) % 1.0f;
-        if (h < 0) h += 1.0f;
-        
-        // 彩度調整
-        s = Mathf.Clamp01(s * saturationMultiplier);
-        
-        // 明度調整
-        v = Mathf.Clamp01(v * brightnessMultiplier);
-        
-        // HSVからRGBに変換
-        Color adjustedColor = Color.HSVToRGB(h, s, v);
-        
-        // 透明度調整
-        adjustedColor.a = Mathf.Clamp01(originalColor.a * alphaMultiplier);
-        
-        return adjustedColor;
+        mat.SetFloat("_Shininess", shininess);
+        mat.SetColor("_FresnelColor", fresnelColor);
+        mat.SetFloat("_FresnelPower", fresnelPower);
     }
 
     public int ApplyProceduralShape(ProceduralShapeParameters parameters)
     {
         Initialize();
         EnsureMesh();
-        if (meshInstance == null)
-        {
-            return 0;
-        }
-
+        if (meshInstance == null) return 0;
         int vertexCount = DetermineVertexCount(parameters);
-
         if (vertexCount <= 0)
         {
             BuildCircleMesh(parameters);
             if (mat != null) mat.SetFloat("_IsCircle", 1.0f);
-            lastWasCircle = true;
             lastAppliedVertexCount = 0;
             return 0;
         }
-
         BuildPolygonMesh(vertexCount, parameters);
         if (mat != null) mat.SetFloat("_IsCircle", 0.0f);
-        lastWasCircle = false;
         lastAppliedVertexCount = vertexCount;
         return vertexCount;
     }
 
     int DetermineVertexCount(ProceduralShapeParameters p)
     {
-        float cycle = Frac(p.shapeSelector + p.normalizedRange * 0.312f + p.normalizedCv * 0.127f);
-        int index = Mathf.Clamp(Mathf.FloorToInt(cycle * VertexCycle.Length), 0, VertexCycle.Length - 1);
-        int count = VertexCycle[index];
-
-        if (count == 0)
+        if (shapeType == ShapeType.Circle) return 0;
+        if (shapeType == ShapeType.Triangle) return 3;
+        if (shapeType == ShapeType.Box)
         {
-            float circleBias = Mathf.Lerp(0.25f, 0.75f, 1f - p.normalizedCv);
-            if (p.shapeSelector < circleBias)
-            {
-                return 0;
-            }
-            int nextIndex = (index + 1) % VertexCycle.Length;
-            count = VertexCycle[nextIndex];
+            int extra = Mathf.RoundToInt(Mathf.Lerp(0f, 4f, p.irregularity));
+            return Mathf.Clamp(4 + extra, 4, 8);
         }
 
-        if (count != 0)
-        {
-            float offsetChooser = p.irregularity - 0.5f;
-            if (Mathf.Abs(offsetChooser) > 0.33f)
-            {
-                int offset = offsetChooser > 0f ? 1 : -1;
-                int altIndex = (index + offset + VertexCycle.Length) % VertexCycle.Length;
-                int alt = VertexCycle[altIndex];
-                if (alt != 0)
-                {
-                    count = alt;
-                }
-            }
-        }
-
-        return Mathf.Clamp(count, 3, 12);
+        float selector = Mathf.Clamp01(p.shapeSelector);
+        int index = Mathf.RoundToInt(selector * (VertexCycle.Length - 1));
+        int count = VertexCycle[Mathf.Clamp(index, 0, VertexCycle.Length - 1)];
+        return Mathf.Clamp(count, 3, 10);
     }
 
     void BuildCircleMesh(ProceduralShapeParameters p)
     {
         meshInstance.Clear();
-
         var vertices = new Vector3[CircleSegments + 1];
-        var uvs      = new Vector2[CircleSegments + 1];
-        var tris     = new int[CircleSegments * 3];
-
+        var uvs = new Vector2[CircleSegments + 1];
+        var tris = new int[CircleSegments * 3];
         vertices[0] = Vector3.zero;
-        uvs[0]      = new Vector2(0.5f, 0.5f);
-
+        uvs[0] = new Vector2(0.5f, 0.5f);
         float baseRadius = 0.5f;
-        float seedBase   = p.seed * 17.0f;
-
+        float seedBase = p.seed * 17.0f;
+        vertexScratch.Clear();
         for (int i = 0; i < CircleSegments; i++)
         {
-            float t     = i / (float)CircleSegments;
+            float t = i / (float)CircleSegments;
             float angle = t * Mathf.PI * 2f;
-
             float jitter = (Hash(seedBase + i * 0.73f) - 0.5f) * Mathf.Lerp(0.0f, 0.04f, p.irregularity);
             float radiusOffset = Mathf.Clamp(baseRadius - jitter, 0.42f, 0.5f);
-
             float x = Mathf.Cos(angle) * radiusOffset;
             float y = Mathf.Sin(angle) * radiusOffset;
-
-            vertices[i + 1] = new Vector3(x, y, 0f);
-            uvs[i + 1]      = new Vector2(x + 0.5f, y + 0.5f);
-
-            tris[i * 3]     = 0;
+            var v = new Vector2(x, y);
+            vertexScratch.Add(v);
+            vertices[i + 1] = v;
+            uvs[i + 1] = new Vector2(x + 0.5f, y + 0.5f);
+            tris[i * 3] = 0;
             tris[i * 3 + 1] = i + 1;
             tris[i * 3 + 2] = (i == CircleSegments - 1) ? 1 : i + 2;
         }
-
-        meshInstance.vertices  = vertices;
-        meshInstance.uv        = uvs;
+        meshInstance.vertices = vertices;
+        meshInstance.uv = uvs;
         meshInstance.triangles = tris;
         meshInstance.RecalculateBounds();
         meshInstance.RecalculateNormals();
-
         UpdatePolygonColliderCircle(vertices);
+        UpdateJellyShaderProperties(vertexScratch);
     }
 
     void BuildPolygonMesh(int vertexCount, ProceduralShapeParameters p)
     {
         meshInstance.Clear();
         GeneratePolygonVertices(vertexCount, p);
-
         int count = vertexScratch.Count;
-
         var vertices = new Vector3[count + 1];
-        var uvs      = new Vector2[count + 1];
-        var tris     = new int[count * 3];
-
+        var uvs = new Vector2[count + 1];
+        var tris = new int[count * 3];
         vertices[0] = Vector3.zero;
-        uvs[0]      = new Vector2(0.5f, 0.5f);
-
+        uvs[0] = new Vector2(0.5f, 0.5f);
         for (int i = 0; i < count; i++)
         {
             Vector2 v = vertexScratch[i];
             vertices[i + 1] = new Vector3(v.x, v.y, 0f);
-            uvs[i + 1]      = new Vector2(v.x + 0.5f, v.y + 0.5f);
+            uvs[i + 1] = new Vector2(v.x + 0.5f, v.y + 0.5f);
         }
-
         for (int i = 0; i < count; i++)
         {
             int triIndex = i * 3;
             int b = i + 1;
             int c = (i + 1) % count + 1;
-            tris[triIndex]     = 0;
+            tris[triIndex] = 0;
             tris[triIndex + 1] = b;
             tris[triIndex + 2] = c;
         }
-
-        meshInstance.vertices  = vertices;
-        meshInstance.uv        = uvs;
+        meshInstance.vertices = vertices;
+        meshInstance.uv = uvs;
         meshInstance.triangles = tris;
         meshInstance.RecalculateBounds();
         meshInstance.RecalculateNormals();
-
         UpdatePolygonCollider(vertexScratch);
+        UpdateJellyShaderProperties(vertexScratch);
     }
 
     void UpdatePolygonColliderCircle(Vector3[] vertices)
     {
         if (polygonCollider == null) return;
-
-        int count = Mathf.Max(0, vertices.Length - 1);
-        if (count < 3)
+        if (vertices == null || vertices.Length <= 1)
         {
-            polygonCollider.enabled = false;
             polygonCollider.pathCount = 0;
             return;
         }
 
-        if (circleColliderPath == null || circleColliderPath.Length != count)
+        int count = vertices.Length - 1;
+        if (count < 3)
         {
-            circleColliderPath = new Vector2[count];
+            polygonCollider.pathCount = 0;
+            return;
         }
 
+        var points = new Vector2[count];
         for (int i = 0; i < count; i++)
         {
             Vector3 v = vertices[i + 1];
-            circleColliderPath[i] = new Vector2(v.x, v.y);
+            points[i] = new Vector2(v.x, v.y);
         }
 
         polygonCollider.enabled = true;
         polygonCollider.pathCount = 1;
-        polygonCollider.SetPath(0, circleColliderPath);
+        polygonCollider.SetPath(0, points);
+        polygonColliderPath = points;
+        circleColliderPath = points;
+        if (circleCollider != null) circleCollider.enabled = false;
     }
-
     void UpdatePolygonCollider(List<Vector2> points)
     {
         if (polygonCollider == null) return;
 
-        int count = points.Count;
-        if (count < 3)
+        if (points == null || points.Count < 3)
         {
-            polygonCollider.enabled = false;
             polygonCollider.pathCount = 0;
+            if (circleCollider != null)
+            {
+                circleCollider.enabled = true;
+                circleCollider.radius = Mathf.Max(circleCollider.radius, 0.01f);
+            }
             return;
         }
 
-        if (polygonColliderPath == null || polygonColliderPath.Length != count)
-        {
-            polygonColliderPath = new Vector2[count];
-        }
-
-        for (int i = 0; i < count; i++)
-        {
-            polygonColliderPath[i] = points[i];
-        }
-
+        var path = points.ToArray();
         polygonCollider.enabled = true;
         polygonCollider.pathCount = 1;
-        polygonCollider.SetPath(0, polygonColliderPath);
+        polygonCollider.SetPath(0, path);
+        polygonColliderPath = path;
+        if (circleCollider != null) circleCollider.enabled = false;
     }
-
     void GeneratePolygonVertices(int vertexCount, ProceduralShapeParameters p)
     {
         vertexScratch.Clear();
 
-        float halfWidth  = Mathf.Lerp(0.32f, 0.5f, Mathf.Clamp01(p.normalizedRange));
-        float halfHeight = Mathf.Lerp(0.32f, 0.5f, Mathf.Clamp01(p.normalizedMean));
-        float balance    = (p.normalizedCv - 0.5f) * 0.18f;
-
-        halfWidth  = Mathf.Clamp(halfWidth + balance, 0.26f, 0.5f);
-        halfHeight = Mathf.Clamp(halfHeight - balance, 0.26f, 0.5f);
-
-        if (vertexCount < 4)
+        if (shapeType == ShapeType.Triangle)
         {
-            GenerateTriangleVertices(vertexCount, p);
+            GenerateTriangleVertices(Mathf.Max(vertexCount, 3), p);
+        }
+        else if (shapeType == ShapeType.Box)
+        {
+            GenerateBoxVertices(Mathf.Max(vertexCount, 4), p);
         }
         else
         {
-            int[] counts = new int[4];
-            AllocateEdgeCounts(vertexCount, p, counts);
-            AppendEdgeVertices(counts, halfWidth, halfHeight, p);
+            GenerateIrregularPolygon(Mathf.Max(vertexCount, 3), p);
         }
 
-        // まずポストプロセス（不規則ノイズ・回転等）。角丸時はノイズを弱める。
         ApplyPostProcess(vertexScratch, p);
-
-        // 角丸を適用（必要時）
-        if (cornerRoundingEnabled && vertexScratch.Count >= 3)
-        {
-            ApplyCornerRounding(vertexScratch, cornerAngleThresholdDeg, cornerRadiusFraction, cornerSegments);
-        }
-
-        // 最終的にCCWを保証
         EnsureCounterClockwise(vertexScratch);
     }
 
-    // 角丸処理：閾値より鋭い凸角を幾何学的フィレットで置換する
-    void ApplyCornerRounding(List<Vector2> buffer, float thresholdDeg, float radiusFrac, int segments)
+    void GenerateBoxVertices(int vertexCount, ProceduralShapeParameters p)
     {
-        const int maxVertices = 96; // 頂点上限で暴走防止
-        int n = buffer.Count;
-        if (n < 3) return;
+        float angle = p.orientation * Mathf.PI * 2f;
+        Vector2 right = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+        Vector2 up = new Vector2(-right.y, right.x);
 
-        List<Vector2> result = new List<Vector2>(Mathf.Min(n * 2, maxVertices));
+        float halfWidth = Mathf.Lerp(0.3f, 0.5f, p.normalizedRange);
+        float halfHeight = Mathf.Lerp(0.3f, 0.5f, p.normalizedMean);
 
-        for (int i = 0; i < n; i++)
+        int[] counts = new int[4];
+        AllocateEdgeCounts(vertexCount, p, counts);
+        AppendEdgeVertices(counts, halfWidth, halfHeight, p);
+    }
+
+    void GenerateIrregularPolygon(int vertexCount, ProceduralShapeParameters p)
+    {
+        float angleOffset = p.orientation * Mathf.PI * 2f;
+        float irregularity = Mathf.Lerp(0f, 0.45f, p.irregularity);
+        float baseRadius = Mathf.Lerp(0.32f, 0.48f, p.normalizedMean);
+        float rangeScale = Mathf.Lerp(0.85f, 1.1f, p.normalizedRange);
+
+        for (int i = 0; i < vertexCount; i++)
         {
-            Vector2 prev = buffer[(i - 1 + n) % n];
-            Vector2 curr = buffer[i];
-            Vector2 next = buffer[(i + 1) % n];
-
-            Vector2 dirIn  = (curr - prev); // prev -> curr（入）
-            Vector2 dirOut = (next - curr); // curr -> next（出）
-
-            float len1 = dirIn.magnitude;
-            float len2 = dirOut.magnitude;
-            if (len1 <= 1e-6f || len2 <= 1e-6f)
-            {
-                result.Add(curr);
-                continue;
-            }
-
-            Vector2 nIn  = dirIn  / len1;
-            Vector2 nOut = dirOut / len2;
-
-            // 凸角のみ対象（CCW前提で外積Z>0）
-            float crossZ = dirIn.x * dirOut.y - dirIn.y * dirOut.x;
-            float dot = Mathf.Clamp(Vector2.Dot(-nIn, nOut), -1f, 1f); // 頂点中心での入り/出の角度
-            float theta = Mathf.Acos(dot); // 内角（0..π）
-            float angleDeg = theta * Mathf.Rad2Deg;
-
-            bool isConvex = crossZ > 0f; // CCWポリゴンの凸
-            if (isConvex && angleDeg < thresholdDeg)
-            {
-                // 目標半径 r
-                float rTarget = Mathf.Clamp(Mathf.Min(len1, len2) * Mathf.Max(0.0001f, radiusFrac), 0.0025f, 0.25f);
-                float half = theta * 0.5f;
-                float tanHalf = Mathf.Tan(half);
-                if (tanHalf < 1e-4f)
-                {
-                    result.Add(curr);
-                }
-                else
-                {
-                    // エッジ上の切り取り距離 a = r / tan(theta/2)
-                    float a = Mathf.Min(len1, len2, rTarget / tanHalf);
-                    Vector2 pStart = curr - nIn  * a; // 入り辺を戻る
-                    Vector2 pEnd   = curr + nOut * a; // 出辺に進む
-
-                    // 円弧中心: 内角二等分線方向に r / sin(theta/2) だけ移動
-                    Vector2 bis = (-nIn + nOut); // 頂点から内角二等分線
-                    float bisLen = bis.magnitude;
-                    if (bisLen < 1e-5f)
-                    {
-                        // 直線に近い場合は単純補間
-                        result.Add(pStart);
-                        result.Add((pStart + pEnd) * 0.5f);
-                        result.Add(pEnd);
-                    }
-                    else
-                    {
-                        bis /= bisLen;
-                        float sinHalf = Mathf.Sin(half);
-                        float radius = Mathf.Min(rTarget, a * tanHalf); // 安全な半径
-                        float distToCenter = radius / Mathf.Max(1e-4f, sinHalf);
-                        Vector2 center = curr + bis * distToCenter;
-
-                        // 円弧を pStart -> pEnd で分割
-                        int seg = Mathf.Clamp(segments, 2, 6);
-                        Vector2 vStart = pStart - center;
-                        Vector2 vEnd   = pEnd   - center;
-                        float ang0 = Mathf.Atan2(vStart.y, vStart.x);
-                        float ang1 = Mathf.Atan2(vEnd.y,   vEnd.x);
-                        float delta = Mathf.DeltaAngle(ang0 * Mathf.Rad2Deg, ang1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;
-
-                        for (int s = 0; s <= seg; s++)
-                        {
-                            float t = (float)s / seg;
-                            float aRad = ang0 + delta * t;
-                            Vector2 p = center + new Vector2(Mathf.Cos(aRad), Mathf.Sin(aRad)) * (vStart.magnitude);
-                            result.Add(p);
-                            if (result.Count >= maxVertices) break;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                result.Add(curr);
-            }
-
-            if (result.Count >= maxVertices) break;
-        }
-
-        if (result.Count >= 3)
-        {
-            buffer.Clear();
-            buffer.AddRange(result);
+            float t = i / (float)vertexCount;
+            float angle = angleOffset + t * Mathf.PI * 2f;
+            float noise = (Hash(p.seed + i * 0.73f) - 0.5f) * irregularity;
+            float radius = Mathf.Clamp(baseRadius * rangeScale + noise, 0.18f, 0.5f);
+            vertexScratch.Add(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
         }
     }
 
     void GenerateTriangleVertices(int count, ProceduralShapeParameters p)
     {
-        float baseRadius = Mathf.Clamp(Mathf.Lerp(0.28f, 0.48f, p.normalizedRange * 0.65f + p.normalizedMean * 0.35f), 0.24f, 0.5f);
-        float seedBase   = p.seed * 9.71f + count * 0.37f;
-        float baseAngle  = (p.shapeSelector * 2f - 1f) * Mathf.PI;
+        int actualCount = Mathf.Max(3, count);
+        float angleOffset = p.orientation * Mathf.PI * 2f;
+        float irregularity = Mathf.Lerp(0f, 0.25f, p.irregularity);
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < actualCount; i++)
         {
-            float t = i / (float)count;
-            float jitterAngle = (Hash(seedBase + i * 1.917f) - 0.5f) * 0.6f / count;
-            float angle = baseAngle + (t + jitterAngle) * Mathf.PI * 2f;
-            float radiusVariation = (Hash(seedBase + i * 2.618f) - 0.5f) * Mathf.Lerp(0.05f, 0.18f, p.irregularity);
-            float rad = Mathf.Clamp(baseRadius + radiusVariation, 0.22f, 0.5f);
-            vertexScratch.Add(new Vector2(Mathf.Cos(angle) * rad, Mathf.Sin(angle) * rad));
+            float angle = angleOffset + i * Mathf.PI * 2f / actualCount;
+            float radius = Mathf.Clamp(0.45f + (Hash(p.seed + i * 0.67f) - 0.5f) * irregularity, 0.2f, 0.5f);
+            vertexScratch.Add(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
         }
     }
 
     void AllocateEdgeCounts(int vertexCount, ProceduralShapeParameters p, int[] counts)
     {
-        for (int i = 0; i < 4; i++) counts[i] = 1;
-        int remaining = vertexCount - 4;
-        if (remaining <= 0) return;
+        if (counts == null || counts.Length == 0) return;
+        Array.Clear(counts, 0, counts.Length);
 
-        float[] weights =
+        int extra = Mathf.Max(vertexCount - 4, 0);
+        for (int i = 0; i < extra; i++)
         {
-            Mathf.Max(0.01f, p.normalizedHr),    // top
-            Mathf.Max(0.01f, p.normalizedMean),  // left
-            Mathf.Max(0.01f, p.normalizedRange), // bottom
-            Mathf.Max(0.01f, p.normalizedCv)     // right
-        };
-
-        float total = weights[0] + weights[1] + weights[2] + weights[3];
-        float[] fractional = new float[4];
-        int assigned = 0;
-
-        for (int i = 0; i < 4; i++)
-        {
-            float norm = weights[i] / total;
-            float exact = norm * remaining;
-            int extra = Mathf.FloorToInt(exact);
-            counts[i] += extra;
-            assigned += extra;
-            fractional[i] = exact - extra;
-        }
-
-        int left = remaining - assigned;
-        while (left > 0)
-        {
-            int pick = 0;
-            float best = fractional[0];
-            for (int i = 1; i < 4; i++)
-            {
-                if (fractional[i] > best)
-                {
-                    best = fractional[i];
-                    pick = i;
-                }
-            }
-            counts[pick]++;
-            fractional[pick] = 0f;
-            left--;
+            int index = Mathf.Clamp(Mathf.FloorToInt(Hash(p.seed + i * 0.19f) * counts.Length), 0, counts.Length - 1);
+            counts[index]++;
         }
     }
 
     void AppendEdgeVertices(int[] counts, float halfWidth, float halfHeight, ProceduralShapeParameters p)
     {
-        float seedBase = p.seed * 13.37f + halfWidth * 1.91f;
+        vertexScratch.Clear();
 
-        // コーナー座標
-        Vector2 topRight    = new Vector2( halfWidth,  halfHeight);
-        Vector2 topLeft     = new Vector2(-halfWidth,  halfHeight);
-        Vector2 bottomLeft  = new Vector2(-halfWidth, -halfHeight);
-        Vector2 bottomRight = new Vector2( halfWidth, -halfHeight);
+        float angle = p.orientation * Mathf.PI * 2f;
+        Vector2 right = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+        Vector2 up = new Vector2(-right.y, right.x);
 
-        // 角を含めて時計回り（後でCCW保証）ではなく、最初からCCWで追加
-        // CCW: topRight -> topLeft -> bottomLeft -> bottomRight
-        vertexScratch.Add(topRight);
-        AppendEdge(vertexScratch, counts[0], topRight, topLeft, seedBase + 1f, p.irregularity);
-        vertexScratch.Add(topLeft);
-        AppendEdge(vertexScratch, counts[1], topLeft, bottomLeft, seedBase + 2f, p.irregularity);
-        vertexScratch.Add(bottomLeft);
-        AppendEdge(vertexScratch, counts[2], bottomLeft, bottomRight, seedBase + 3f, p.irregularity);
-        vertexScratch.Add(bottomRight);
-        AppendEdge(vertexScratch, counts[3], bottomRight, topRight, seedBase + 4f, p.irregularity);
+        Vector2[] corners =
+        {
+            -right * halfWidth - up * halfHeight,
+            right * halfWidth - up * halfHeight,
+            right * halfWidth + up * halfHeight,
+            -right * halfWidth + up * halfHeight
+        };
+
+        for (int edge = 0; edge < 4; edge++)
+        {
+            Vector2 start = corners[edge];
+            Vector2 end = corners[(edge + 1) % 4];
+            int extras = (counts != null && edge < counts.Length) ? counts[edge] : 0;
+            AppendEdge(vertexScratch, extras, start, end, p.seed + edge * 0.61f, Mathf.Lerp(0f, 0.35f, p.irregularity));
+        }
+
+        if (vertexScratch.Count > 1 && (vertexScratch[vertexScratch.Count - 1] - vertexScratch[0]).sqrMagnitude < 1e-6f)
+        {
+            vertexScratch.RemoveAt(vertexScratch.Count - 1);
+        }
     }
 
     void AppendEdge(List<Vector2> buffer, int count, Vector2 start, Vector2 end, float seed, float irregularity)
     {
-        if (count <= 0) return;
-        float step = 1f / (count + 1);
-        float jitterScale = step * (0.3f + irregularity * 0.5f);
-
-        for (int i = 0; i < count; i++)
+        if (buffer.Count == 0)
         {
-            float t = (i + 1) * step;
-            float jitter = (Hash(seed + i * 0.618f) - 0.5f) * jitterScale;
-            t = Mathf.Clamp01(t + jitter);
-            Vector2 point = Vector2.Lerp(start, end, t);
+            buffer.Add(start);
+        }
+        else if ((buffer[buffer.Count - 1] - start).sqrMagnitude > 1e-6f)
+        {
+            buffer.Add(start);
+        }
+
+        Vector2 edge = end - start;
+        Vector2 normal = edge.sqrMagnitude > 0f ? new Vector2(-edge.y, edge.x).normalized : Vector2.zero;
+
+        for (int i = 1; i <= count; i++)
+        {
+            float t = i / (float)(count + 1);
+            Vector2 point = start + edge * t;
+            float offset = (Hash(seed + i * 0.917f) - 0.5f) * irregularity;
+            point += normal * offset;
             buffer.Add(point);
         }
+
+        buffer.Add(end);
     }
 
     void ApplyPostProcess(List<Vector2> buffer, ProceduralShapeParameters p)
     {
-        float angle = (p.orientation - 0.5f) * Mathf.PI * 2f;
-        float cos = Mathf.Cos(angle);
-        float sin = Mathf.Sin(angle);
-        float maxRadius = 0.5f;
-        float irregularAmp = Mathf.Lerp(0.02f, 0.18f, p.irregularity);
-        if (cornerRoundingEnabled)
+        if (buffer == null || buffer.Count < 3) return;
+        float smoothing = Mathf.Lerp(0f, 0.5f, p.irregularity * 0.6f + p.normalizedCv * 0.4f);
+        if (smoothing <= 0f) return;
+
+        var temp = new Vector2[buffer.Count];
+        for (int i = 0; i < buffer.Count; i++)
         {
-            irregularAmp *= Mathf.Clamp01(roundingIrregularityScale);
+            Vector2 prev = buffer[(i - 1 + buffer.Count) % buffer.Count];
+            Vector2 current = buffer[i];
+            Vector2 next = buffer[(i + 1) % buffer.Count];
+            Vector2 average = (prev + current + next) / 3f;
+            temp[i] = Vector2.Lerp(current, average, smoothing);
         }
-        float seedBase = p.seed * 17.1717f;
 
         for (int i = 0; i < buffer.Count; i++)
         {
-            Vector2 v = buffer[i];
-            float noise = (Hash(seedBase + i * 1.318f) - 0.5f) * irregularAmp;
-            if (v.sqrMagnitude > 0.0001f)
-            {
-                v += v.normalized * noise;
-            }
-            else
-            {
-                v += new Vector2(noise, noise);
-            }
-
-            float mag = v.magnitude;
-            if (mag > maxRadius)
-            {
-                v *= maxRadius / mag;
-            }
-
-            float rx = v.x * cos - v.y * sin;
-            float ry = v.x * sin + v.y * cos;
-            buffer[i] = new Vector2(rx, ry);
+            buffer[i] = temp[i];
         }
     }
 
     void EnsureCounterClockwise(List<Vector2> buffer)
     {
-        if (buffer.Count < 3) return;
+        if (buffer == null || buffer.Count < 3) return;
+
         float area = 0f;
         for (int i = 0; i < buffer.Count; i++)
         {
-            Vector2 current = buffer[i];
-            Vector2 next = buffer[(i + 1) % buffer.Count];
-            area += (current.x * next.y) - (next.x * current.y);
+            Vector2 a = buffer[i];
+            Vector2 b = buffer[(i + 1) % buffer.Count];
+            area += (a.x * b.y) - (b.x * a.y);
         }
+
         if (area < 0f)
         {
             buffer.Reverse();
@@ -786,43 +503,75 @@ public class HeartVisual : MonoBehaviour
             Destroy(meshInstance);
 #endif
         }
+
+        if (_vertexTexture != null)
+        {
+#if UNITY_EDITOR
+            DestroyImmediate(_vertexTexture);
+#else
+            Destroy(_vertexTexture);
+#endif
+        }
     }
 
     public void SetRadius(float r)
     {
-        ApplyRadiusScale(Mathf.Max(0f, r));
+        float target = Mathf.Max(0.01f, r);
+        radius = target;
+        ApplyRadiusScale(target);
+        RefreshMaterial();
     }
-
     void ApplyRadiusScale(float targetRadius)
     {
         Initialize();
+        float clamped = Mathf.Max(0.01f, targetRadius);
+        radius = clamped;
 
-        radius = targetRadius;
+        float reference = Mathf.Max(initialWorldRadius, 0.0001f);
+        float scale = clamped / reference;
 
-        const float minRadius = 0.0001f;
-        float worldRadius = Mathf.Max(targetRadius, minRadius);
-        float baseWorld = Mathf.Max(initialWorldRadius, minRadius);
-        float scaleFactor = worldRadius / baseWorld;
-
-        if (!float.IsFinite(scaleFactor))
-        {
-            scaleFactor = 1f;
-        }
-
-        transform.localScale = initialScale * scaleFactor;
+        transform.localScale = new Vector3(initialScale.x * scale, initialScale.y * scale, initialScale.z);
 
         if (circleCollider != null)
         {
             circleCollider.radius = initialColliderRadius;
         }
+
+        if (polygonCollider != null && polygonColliderPath.Length > 0)
+        {
+            polygonCollider.SetPath(0, polygonColliderPath);
+        }
+    }
+    public Material MaterialInstance => mat;
+    static float Frac(float x) => x - Mathf.Floor(x);
+    static float Hash(float x) { return Frac(Mathf.Sin(x * 12.9898f) * 43758.5453f); }
+
+
+    Color ApplyColorAdjustments(Color baseColor)
+    {
+        Color.RGBToHSV(baseColor, out float h, out float s, out float v);
+        h = Mathf.Repeat(h + hueShift, 1f);
+        s = Mathf.Clamp01(s * saturationMultiplier);
+        v = Mathf.Clamp01(v * brightnessMultiplier);
+        Color adjusted = Color.HSVToRGB(h, s, v);
+        adjusted.a = Mathf.Clamp01(baseColor.a * alphaMultiplier);
+        return adjusted;
     }
 
-    public Material MaterialInstance => mat;
-
-    static float Frac(float x) => x - Mathf.Floor(x);
-
-    static float Hash(float x)
+    void UpdateJellyShaderProperties(List<Vector2> localPoints)
     {
-        return Frac(Mathf.Sin(x * 12.9898f) * 43758.5453f);
+        if (mat == null || _vertexTexture == null) return;
+        int pointCount = Mathf.Min(localPoints.Count, MAX_VERTICES);
+        for (int i = 0; i < pointCount; i++)
+        {
+            _textureColorData[i] = new Color(localPoints[i].x, localPoints[i].y, 0, 0);
+        }
+        for (int i = pointCount; i < MAX_VERTICES; i++) _textureColorData[i] = Color.clear;
+        _vertexTexture.SetPixels(_textureColorData);
+        _vertexTexture.Apply(false);
+        mat.SetTexture("_VertexTex", _vertexTexture);
+        mat.SetInt("_VertexCount", pointCount);
     }
 }
+
+

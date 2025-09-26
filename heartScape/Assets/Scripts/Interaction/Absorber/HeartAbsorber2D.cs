@@ -8,18 +8,14 @@ public class HeartAbsorber2D : MonoBehaviour
     [Header("吸収設定")]
     [Tooltip("この数だけハートを取り込むと爆発します。")]
     public int requiredCaptureCount = 10;
-
     [Tooltip("吸い込みにかかる時間（秒）です。")]
     public float absorbDuration = 0.45f;
-
     [Tooltip("吸い込み中にハートを縮小させる倍率です。")]
     public float absorbScaleFactor = 0.55f;
-
     [Tooltip("接触点からバブル中心へ寄せる比率（0 = 接点, 1 = 中央までの割合）です。")]
     [Range(0f, 1f)] public float absorbAnchorInward = 0.2f;
     [Tooltip("吸収演出の補間カーブ（0～1）です。")]
     public AnimationCurve absorbEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-
     [Tooltip("接触した地点から吸い込みエフェクトを起こすか。オフにすると中心から吸い込みます。")]
     public bool injectAtContactPoint = true;
 
@@ -33,25 +29,29 @@ public class HeartAbsorber2D : MonoBehaviour
     public Transform visualRoot;
     public Transform scaleRoot;
 
-    [Header("再出現演出")]
+    [Header("Audio Settings")]
+    [Tooltip("吸収が一定数に達した際の破裂音を個別に指定する場合はオンにします。")]
+    public bool useCustomBurstSound = false;
+    [Tooltip("カスタム破裂音。未設定の場合はグローバル設定が使用されます。")]
+    public AudioClip customBurstSound;
+    [Tooltip("カスタム破裂音の音量係数です。")]
+    [Range(0f, 2f)] public float customBurstVolume = 1f;
+    [Tooltip("破裂音を再生するまでの遅延秒数です。")]
+    [Range(0f, 4f)] public float customBurstDelay = 0f;
+
+[Header("再出現演出")]
     [Tooltip("爆発後に自動で再出現するかどうか。")]
     public bool autoRespawn = true;
-
     [Tooltip("再出現までの遅延（秒）です。")]
     public float respawnDelay = 3f;
-
     [Tooltip("フェードインにかける時間（秒）です。0 にすると即座に表示します。")]
     public float fadeInDuration = 0.6f;
-
     [Tooltip("フェードインに使用する補間カーブです。")]
     public AnimationCurve fadeInCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-
     [Tooltip("待機時の基本透明度です。")]
     [Range(0f, 1f)] public float idleAlpha = 0.2f;
-
     [Tooltip("再出現時に少し膨らむオーバーシュート倍率です。")]
     public float respawnOvershoot = 1.08f;
-
     [Tooltip("爆発前に縮む倍率です。")]
     public float collapseScaleFactor = 0.7f;
 
@@ -273,6 +273,14 @@ public class HeartAbsorber2D : MonoBehaviour
 
         if (capturedColors.Count >= requiredCaptureCount)
         {
+            if (useCustomBurstSound)
+            {
+                HeartSoundManager.Instance?.PlayAbsorberBurst(transform.position, customBurstDelay, customBurstSound, customBurstVolume);
+            }
+            else
+            {
+                HeartSoundManager.Instance?.PlayAbsorberBurst(transform.position);
+            }
             StartCoroutine(ExplodeAndRespawn());
         }
     }
@@ -351,4 +359,6 @@ public class HeartAbsorber2D : MonoBehaviour
         StartAppearanceSequence();
     }
 }
+
+
 

@@ -1,7 +1,8 @@
-using UnityEngine;
+﻿using UnityEngine;
+using HeartScape.IO.Gateway;
 
-// 1/2/3/4 キーで A/B/C/D を発射。DBモード時は UID→DB 参照、
-// 通常モード時はプリセット値をペイロード送信。
+// 1/2/3/4 キーで A/B/C/D を発射。DBモード時は UID→DB 参照。
+// 通常モード時はプリセット値をパイロード送信。
 // Space 長押しでランダム、R=10連射、C=全消去、F5=DBリロード。
 public class DebugSpawner : MonoBehaviour
 {
@@ -107,7 +108,6 @@ public class DebugSpawner : MonoBehaviour
         int sw = Random.Range(1, 5);
         if (useHeartDB)
         {
-            // ランダム UID を投げる → DB に無ければ HeartDB.Default が適用
             string uid = "DBG_RND_" + Random.Range(0, 999999).ToString("D6");
             gateway.Inject(new HeartGateway.HeartInput { uid = uid, switchNo = sw, hr=0, cv=0, range=0, mean=0 });
         }

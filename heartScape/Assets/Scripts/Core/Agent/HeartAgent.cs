@@ -10,9 +10,16 @@ public class HeartAgent : MonoBehaviour
     [HideInInspector] public bool       isCaptured = false;
     [HideInInspector] public BubbleZone capturedBy = null;
 
+    internal HeartManager owner;
+
     void Awake()
     {
         // ID 未設定なら割り当て
         if (id == 0) id = Random.Range(int.MinValue, int.MaxValue);
+    }
+
+    void OnDestroy()
+    {
+        owner?.NotifyAgentDestroyed(this);
     }
 }

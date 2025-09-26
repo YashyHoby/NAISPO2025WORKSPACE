@@ -90,7 +90,7 @@ async def debug_input_loop():
                 break
             key = line.strip()
             if key in ("q", "Q", ""):
-                print("[Debug] Leaving debug input loop.")
+                print("[Debug] Leaving debug input loop.a")
                 break
             if key in DEBUG_SAMPLE_PAYLOADS:
                 payload = DEBUG_SAMPLE_PAYLOADS[key]

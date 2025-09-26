@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using HeartScape.IO.Gateway;
 
 public class MicrocontrollerWebSocketClient : MonoBehaviour
 {
@@ -196,18 +197,22 @@ public class MicrocontrollerWebSocketClient : MonoBehaviour
         float cvNormalized = Mathf.Clamp01(payload.cv / Mathf.Max(0.0001f, cvInputMax));
         float cv = Mathf.Lerp(cvRange.x, cvRange.y, cvNormalized);
         float range = Mathf.Lerp(rngRange.x, rngRange.y, Mathf.Clamp01(payload.dynRange));
-        float mean = Mathf.Lerp(meanRange.x, meanRange.y, Mathf.Clamp01(payload.time / Mathf.Max(0.0001f, pressTimeMax)));
+        float hrNorm = Mathf.InverseLerp(hrRange.x, hrRange.y, hr);
+        float mean = Mathf.Lerp(meanRange.x, meanRange.y, Mathf.Clamp01(hrNorm));
+        float clampedPressTime = Mathf.Clamp(payload.time, 0f, pressTimeMax);
         float hueNormalized = Mathf.Repeat(payload.Hue, 360f) / 360f;
+
+        string logicalId = $"BTN_{Mathf.Clamp(payload.button, 0, 3)}";
 
         return new HeartGateway.HeartInput
         {
-            uid = $"MC_{payload.button}_{DateTime.UtcNow.Ticks}",
+            uid = logicalId,
             switchNo = Mathf.Clamp(payload.button, 0, 3) + 1,
             hr = hr,
             cv = cv,
             range = range,
             mean = mean,
-            pressTime = payload.time,
+            pressTime = clampedPressTime,
             dynRange = payload.dynRange,
             hue = hueNormalized,
             hasHue = true
