@@ -46954,69 +46954,6 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
---- !u!21 &1490397748
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: AgentSDF_Unlit
-  m_Shader: {fileID: 4800000, guid: ee8f6df5aa3a47b41bb5dcc411a58e03, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MaskTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _NormalMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _EnableExternalAlpha: 0
-    - _FresnelPower: 1.94
-    - _IsCircle: 1
-    - _OutlineWidth: 0.01
-    - _Pulse: 0.8956734
-    - _Radius: 0.13500373
-    - _Refraction: 0.1
-    - _ShapeType: 0
-    - _Shininess: 80.5
-    - _Smoothness: 0.322
-    - _Soft: 0.02
-    - _ZWrite: 0
-    m_Colors:
-    - _BoxSize: {r: 0.6, g: 0.6, b: 0, a: 0}
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _FresnelColor: {r: 0, g: 0.099147975, b: 0.49056602, a: 0.48235294}
-    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Tint: {r: 0.57110184, g: 0.1925, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &1492402723
 GameObject:
   m_ObjectHideFlags: 0
@@ -47133,6 +47070,69 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1753361986}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!21 &1506681174
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: AgentSDF_Unlit
+  m_Shader: {fileID: 4800000, guid: ee8f6df5aa3a47b41bb5dcc411a58e03, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MaskTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _EnableExternalAlpha: 0
+    - _FresnelPower: 1.94
+    - _IsCircle: 1
+    - _OutlineWidth: 0.01
+    - _Pulse: 0.39484286
+    - _Radius: 0.13500373
+    - _Refraction: 0.1
+    - _ShapeType: 0
+    - _Shininess: 80.5
+    - _Smoothness: 0.322
+    - _Soft: 0.02
+    - _ZWrite: 0
+    m_Colors:
+    - _BoxSize: {r: 0.6, g: 0.6, b: 0, a: 0}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _FresnelColor: {r: 0, g: 0.099147975, b: 0.49056602, a: 0.48235294}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
+    - _Tint: {r: 0.57110184, g: 0.1925, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!28 &1549177493
 Texture2D:
   m_ObjectHideFlags: 0
@@ -64348,7 +64348,7 @@ MonoBehaviour:
   satRange: {x: 0.55, y: 0.95}
   valRange: {x: 0.85, y: 1}
   hueWeights: {x: 0.65, y: 0.25, z: 0.1}
-  radiusRange: {x: 0.06, y: 0.15}
+  radiusRange: {x: 0.06, y: 0.1}
   setRadiusOnSpawn: 1
   shapeCount: 3
 --- !u!4 &2137695091
