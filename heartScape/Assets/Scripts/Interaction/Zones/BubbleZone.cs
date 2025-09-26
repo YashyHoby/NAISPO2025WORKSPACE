@@ -1,76 +1,76 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 public class BubbleZone : EventZone
 {
-    [Tooltip("捕獲数がこの値に達すると破裂演出を行います。")]
+    [Tooltip("謐慕佐謨ｰ縺後％縺ｮ蛟､縺ｫ驕斐☆繧九→遐ｴ陬よｼ泌・繧定｡後＞縺ｾ縺吶")]
     public int threshold = 10;
 
-    [Tooltip("中心へ引き寄せる力の強さ（Force）です。")]
+    [Tooltip("荳ｭ蠢・∈蠑輔″蟇・○繧句鴨縺ｮ蠑ｷ縺包ｼ・orce・峨〒縺吶'")]
     public float pullStrength = 3.5f;
 
-    [Tooltip("引き寄せ中に加える追加減速の強さです。")]
+    [Tooltip("蠑輔″蟇・○荳ｭ縺ｫ蜉縺医ｋ霑ｽ蜉貂幃溘・蠑ｷ縺輔〒縺吶・")]
     public float damping = 6.0f;
 
-    // 吸い込み時に少し減速させる係数（旧: a.vel *= 0.2f）
+    // 蜷ｸ縺・ｾｼ縺ｿ譎ゅ↓蟆代＠貂幃溘＆縺帙ｋ菫よ焚・域立: a.vel *= 0.2f・・
     [Range(0f, 1f)] public float initialSlowdown = 0.2f;
 
     private readonly HashSet<int> captured = new();
 
-    // EventZone 側が FixedUpdate 相当で Apply を呼んでいる想定
+    // EventZone 蛛ｴ縺・FixedUpdate 逶ｸ蠖薙〒 Apply 繧貞他繧薙〒縺・ｋ諠ｳ螳・
     public override void Apply(HeartAgent a)
     {
         if (!a) return;
         var rb = a.GetComponent<Rigidbody2D>();
         if (!rb) return;
 
-        // --- 初回侵入で捕獲状態へ
+        // --- 蛻晏屓萓ｵ蜈･縺ｧ謐慕佐迥ｶ諷九∈
         if (!captured.Contains(a.id))
         {
             captured.Add(a.id);
             a.isCaptured = true;
             a.capturedBy = this;
 
-            // 旧 a.vel *= 0.2f -> 物理速度を直接スケール
+            // 譌ｧ a.vel *= 0.2f -> 迚ｩ逅・溷ｺｦ繧堤峩謗･繧ｹ繧ｱ繝ｼ繝ｫ
             rb.linearVelocity *= initialSlowdown;
 
             if (captured.Count >= threshold)
                 Burst();
         }
 
-        // --- 内部に留める：中心へ吸引 + 追加ダンピング
+        // --- 蜀・Κ縺ｫ逡吶ａ繧具ｼ壻ｸｭ蠢・∈蜷ｸ蠑・+ 霑ｽ蜉繝繝ｳ繝斐Φ繧ｰ
         Vector2 center = transform.position;
         Vector2 toC = center - rb.position;
 
-        // 吸引（加算力）
+        // 蜷ｸ蠑包ｼ亥刈邂怜鴨・・
         if (toC.sqrMagnitude > 1e-6f)
         {
             Vector2 pull = toC.normalized * pullStrength;
             rb.AddForce(pull, ForceMode2D.Force);
         }
 
-        // 追加ダンピング（速度を力で減衰させる： -c*v ）
+        // 霑ｽ蜉繝繝ｳ繝斐Φ繧ｰ・磯溷ｺｦ繧貞鴨縺ｧ貂幄｡ｰ縺輔○繧具ｼ・-c*v ・・
         if (damping > 0f)
         {
             Vector2 dampingForce = -rb.linearVelocity * damping;
             rb.AddForce(dampingForce, ForceMode2D.Force);
         }
 
-        // 中心付近は位置を少しだけ中心へ寄せる（物理に優しい MovePosition）
+        // 荳ｭ蠢・ｻ倩ｿ代・菴咲ｽｮ繧貞ｰ代＠縺縺台ｸｭ蠢・∈蟇・○繧具ｼ育黄逅・↓蜆ｪ縺励＞ MovePosition・・
         if (toC.magnitude < radius * 0.3f)
         {
             Vector2 p = Vector2.Lerp(rb.position, center, 0.15f);
             rb.MovePosition(p);
-            // ほぼ静止に寄せる
+            // 縺ｻ縺ｼ髱呎ｭ｢縺ｫ蟇・○繧・
             rb.linearVelocity *= 0.8f;
         }
     }
 
     void Burst()
     {
-        AudioHub.PlayBubbleBurst();
+        HeartSoundManager.Instance?.PlayBubbleBurst(transform.position);
 
-        // 捕獲解放（軽く弾き出す：Impulse）
+        // 謐慕佐隗｣謾ｾ・郁ｻｽ縺丞ｼｾ縺榊・縺呻ｼ唔mpulse・・
         var all = FindObjectsByType<HeartAgent>(FindObjectsSortMode.None);
         foreach (var agent in all)
         {

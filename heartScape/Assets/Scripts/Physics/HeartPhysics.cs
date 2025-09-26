@@ -350,6 +350,11 @@ public class HeartPhysics : MonoBehaviour
             Vector2 incomingDir = (velocity.sqrMagnitude > 1e-6f) ? velocity.normalized : -bestNormal;
             TriggerVisualBounce(incomingDir, impactSpeed);
         }
+
+        if (impactSpeed > 0f)
+        {
+            HeartSoundManager.Instance?.OnHeartCollision(this, collision, impactSpeed);
+        }
     }
 
     void SetupVisualMesh()
@@ -464,6 +469,8 @@ public class HeartPhysics : MonoBehaviour
         }
         collisionVisualRoutine = StartCoroutine(VisualBounceRoutine(axisNorm, amplitude));
     }
+
+    public float CurrentRadius => visual != null ? visual.radius : 0.6f;
 
     IEnumerator VisualBounceRoutine(Vector2 axis, float amplitude)
     {

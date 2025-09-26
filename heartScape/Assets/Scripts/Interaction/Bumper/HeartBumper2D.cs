@@ -31,7 +31,11 @@ namespace HeartScape.Interaction.Bumper
 
         [Tooltip("振動演出の振動数（Hz）です。")]
         public float visualShakeFrequency = 7f;
-        
+
+        [Header("Sound")]
+        [SerializeField] string bumperSoundKey = "default";
+        [SerializeField, Range(0f, 2f)] float bumperVolumeScale = 1f;
+
         // 長方形コライダー設定は削除 - BoxCollider2Dコンポーネントで直接編集
         
         [Header("ビジュアル管理")]
@@ -172,6 +176,9 @@ namespace HeartScape.Interaction.Bumper
             {
                 slimeVisual.OnBumperCollision();
             }
+
+            var key = string.IsNullOrWhiteSpace(bumperSoundKey) ? gameObject.name : bumperSoundKey;
+            HeartSoundManager.Instance?.PlayBumperHit(key, bumperVolumeScale);
         }
 
         void StartVisualShake()

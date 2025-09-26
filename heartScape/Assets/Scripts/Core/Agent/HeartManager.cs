@@ -103,6 +103,8 @@ public class HeartManager : MonoBehaviour
             trailSystem.OnAgentSpawned(a);
         }
         
+        HeartSoundManager.Instance?.PlaySpawn(pos);
+
         return a;
     }
     

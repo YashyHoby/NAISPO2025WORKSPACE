@@ -228,6 +228,15 @@ MonoBehaviour:
   shapeType: 2
   color: {r: 0.27220765, g: 0.9037931, b: 0.36653835, a: 1}
   radius: 0.310766
+  brightnessMultiplier: 1
+  saturationMultiplier: 1
+  hueShift: 0
+  alphaMultiplier: 1
+  cornerRoundingEnabled: 1
+  cornerAngleThresholdDeg: 150
+  cornerRadiusFraction: 0.1
+  cornerSegments: 3
+  roundingIrregularityScale: 0.35
   profile:
     uid: PREVIEW
     hr: 71.55
@@ -236,6 +245,14 @@ MonoBehaviour:
     mean: 80
   agent: {fileID: 4506072710588451775}
   baseMaterial: {fileID: 2100000, guid: 7cd2626126b0f494480c666d721a79d7, type: 2}
+  smoothness: 0.1
+  outlineWidth: 0.01
+  outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  refraction: 0.1
+  specularColor: {r: 1, g: 1, b: 1, a: 0.5}
+  shininess: 20
+  fresnelColor: {r: 1, g: 1, b: 1, a: 0.1}
+  fresnelPower: 2
 --- !u!60 &-1140081664458667237
 PolygonCollider2D:
   m_ObjectHideFlags: 0

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class SoundObstacle : EventZone
 {
@@ -6,15 +6,15 @@ public class SoundObstacle : EventZone
 
     public override void Apply(HeartAgent a)
     {
-        AudioHub.PlayMaterial(soundKey);
+        HeartSoundManager.Instance?.PlayMaterialSound(soundKey);
 
         var rb = a.GetComponent<Rigidbody2D>();
         if (!rb) return;
 
-        // 法線方向を計算（障害物中心 → HeartAgent 方向）
+        // Calculate normal from obstacle center to HeartAgent.
         var n = ((Vector2)a.transform.position - (Vector2)transform.position).normalized;
 
-        // 速度ベクトルを反射させ、少し減衰
+        // 騾溷ｺｦ繝吶け繝医Ν繧貞渚蟆・＆縺帙∝ｰ代＠貂幄｡ｰ
         rb.linearVelocity = Vector2.Reflect(rb.linearVelocity, n) * 0.9f;
     }
 }

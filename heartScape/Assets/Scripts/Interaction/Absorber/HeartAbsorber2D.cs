@@ -267,6 +267,8 @@ public class HeartAbsorber2D : MonoBehaviour
 			absorbingIds.Remove(heart.GetInstanceID());
 		}
 
+        HeartSoundManager.Instance?.PlayAbsorb(transform.position);
+
         capturedColors.Add(heartColor);
 
         if (capturedColors.Count >= requiredCaptureCount)
