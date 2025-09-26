@@ -27,6 +27,11 @@ namespace HeartScape.IO.Gateway
         [SerializeField] public AnimationCurve bubbleFadeCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
         [SerializeField] public AnimationCurve bubbleScaleCurve = AnimationCurve.EaseInOut(0f, 0.3f, 1f, 1f);
         
+        [Header("Bubble Direction")]
+        [SerializeField] public bool useEmitterDirection = true;
+        [SerializeField] public float bubbleDirectionStrength = 1f;
+        [SerializeField] public float bubbleSpreadAngle = 30f;
+        
         [Header("Object Appearance")]
         [SerializeField] public float objectAppearSpeed = 5f;
         [SerializeField] public float objectMaxScale = 1.2f;
@@ -42,7 +47,7 @@ namespace HeartScape.IO.Gateway
         [SerializeField] public bool enableDebugLogs = true;
         
         [Header("Visual Components")]
-        [SerializeField] private Transform visualRoot;
+        [SerializeField] public Transform visualRoot;
         [SerializeField] private SpriteRenderer holeRenderer;
         [SerializeField] private ParticleSystem bubbleParticleSystem;
         [SerializeField] public Transform objectSpawnPoint;
@@ -97,6 +102,12 @@ namespace HeartScape.IO.Gateway
             if (enableBubbleEmission)
             {
                 UpdateBubbleEmission();
+                
+                // Emitterの回転に合わせてバブル方向を更新（フレームレート制限）
+                if (useEmitterDirection && Time.frameCount % 30 == 0) // 30フレームに1回のみ更新
+                {
+                    UpdateBubbleDirection();
+                }
             }
             UpdateBubbles();
         }
@@ -217,10 +228,11 @@ namespace HeartScape.IO.Gateway
             shape.shapeType = ParticleSystemShapeType.Circle;
             shape.radius = holeSize * 0.3f;
             
+            // velocityOverLifetimeを完全に無効化（エラー回避のため）
             var velocityOverLifetime = bubbleParticleSystem.velocityOverLifetime;
-            velocityOverLifetime.enabled = true;
-            velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
-            velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(bubbleSpeed);
+            velocityOverLifetime.enabled = false;
+            
+            // startSpeedは既に上で設定済み
             
             // サイズと色の設定を簡素化
             var sizeOverLifetime = bubbleParticleSystem.sizeOverLifetime;
@@ -229,6 +241,62 @@ namespace HeartScape.IO.Gateway
             var colorOverLifetime = bubbleParticleSystem.colorOverLifetime;
             colorOverLifetime.enabled = false; // 簡素化のため無効化
         }
+        
+        // 前回の方向を記録（不要な更新を避けるため）
+        private Vector2 lastEmitterDirection = Vector2.zero;
+        private bool directionInitialized = false;
+        
+        /// <summary>
+        /// バブルの方向制御を更新（velocityOverLifetimeを使わない方法）
+        /// </summary>
+        public void UpdateBubbleDirection()
+        {
+            if (bubbleParticleSystem == null) return;
+            
+            Vector2 currentDirection = transform.right;
+            
+            // 方向が変わった場合のみ更新
+            if (!directionInitialized || Vector2.Distance(currentDirection, lastEmitterDirection) > 0.01f)
+            {
+                var main = bubbleParticleSystem.main;
+                var shape = bubbleParticleSystem.shape;
+                
+                if (useEmitterDirection)
+                {
+                    // Emitterの向きに基づいてバブルの方向を設定
+                    Vector2 emitterDirection = currentDirection;
+                    
+                    // 方向の強度を適用
+                    float directionalSpeed = bubbleSpeed * bubbleDirectionStrength;
+                    
+                    // mainモジュールで速度を設定
+                    main.startSpeed = directionalSpeed;
+                    
+                    // shapeモジュールで方向を設定
+                    shape.enabled = true;
+                    shape.shapeType = ParticleSystemShapeType.Cone;
+                    shape.angle = bubbleSpreadAngle;
+                    shape.rotation = new Vector3(0, 0, Mathf.Atan2(emitterDirection.y, emitterDirection.x) * Mathf.Rad2Deg);
+                    
+                    if (enableDebugLogs)
+                    {
+                        Debug.Log($"[BlackHoleEmitterVisual] Bubble direction updated: {emitterDirection} (strength: {bubbleDirectionStrength})");
+                    }
+                }
+                else
+                {
+                    // 従来の放射状の方向
+                    main.startSpeed = bubbleSpeed;
+                    shape.enabled = true;
+                    shape.shapeType = ParticleSystemShapeType.Circle;
+                    shape.radius = holeSize * 0.3f;
+                }
+                
+                lastEmitterDirection = currentDirection;
+                directionInitialized = true;
+            }
+        }
+        
         
         /// <summary>
         /// ブラックホールビジュアルの更新

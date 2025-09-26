@@ -313,8 +313,8 @@ public class AbsorberFloatingPhysics : MonoBehaviour
             return;
         }
             
-        // デバッグ: 心オブジェクト以外のTriggerに入った場合の警告
-        if (showDebugInfo)
+        // デバッグ: 心オブジェクト以外のTriggerに入った場合の警告（Bumperは除外）
+        if (showDebugInfo && !other.name.Contains("Bumper"))
         {
             Debug.LogWarning($"[AbsorberFloatingPhysics] Trigger detected with {other.name}. Collider might be set as Trigger!");
         }

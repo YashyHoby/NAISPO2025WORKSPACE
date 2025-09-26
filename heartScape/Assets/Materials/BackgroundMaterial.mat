@@ -26,24 +26,24 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _CausticsIntensity: 0.9629266
+    - _CausticsIntensity: 0.44752747
     - _DepthFalloff: 3.65
     - _DepthIntensity: 2.18
     - _DepthLayers: 6.61
-    - _DistortionStrength: 0.10306348
+    - _DistortionStrength: -0.011041797
     - _FresnelPower: 2.74
-    - _LightIntensity: 1.4253492
+    - _LightIntensity: 1.1843112
     - _LiquidComplexity: 3.7
-    - _LiquidIntensity: 1.46797
-    - _LiquidSpeed: 0.14673924
+    - _LiquidIntensity: 1.1504722
+    - _LiquidSpeed: 2.134378
     - _LiquidViscosity: 0.95
-    - _NoiseScale: 11.791471
+    - _NoiseScale: 4.8676734
     - _ParallaxStrength: 0.547
-    - _WaveScale: 17.31449
-    - _WaveSpeed: 0.45361978
+    - _WaveScale: 3.6381865
+    - _WaveSpeed: 0.45338786
     m_Colors:
-    - _AccentColor: {r: 0, g: 0.16248226, b: 0.41499853, a: 1}
-    - _MainColor: {r: 0, g: 0.2300328, b: 0.2319985, a: 1}
-    - _SecondColor: {r: 0.35126653, g: 0.5463331, b: 0.548, a: 1}
+    - _AccentColor: {r: 0.20999962, g: 0.16820967, b: 0.20052391, a: 1}
+    - _MainColor: {r: 0.33351925, g: 0.29912964, b: 0.35399967, a: 1}
+    - _SecondColor: {r: 0.3002365, g: 0.24858063, b: 0.33099964, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

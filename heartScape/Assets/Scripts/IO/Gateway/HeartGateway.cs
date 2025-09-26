@@ -17,6 +17,9 @@ public class HeartGateway : MonoBehaviour
     
     [Tooltip("ブラックホール風生物学的オーガンゲートウェイ")]
     public BlackHoleBiologicalGateway blackHoleBiologicalGateway;
+    
+    [Tooltip("統合ブラックホールゲートウェイマネージャー")]
+    public BlackHoleGatewayManager blackHoleGatewayManager;
 
     [Header("エミッタ（A/B/C/D）")]
     [Tooltip("スイッチ A/B/C/D に対応する発射位置。Transform.right が射出方向になります。")]
@@ -52,27 +55,36 @@ public class HeartGateway : MonoBehaviour
     {
         HeartDB.Load();
         
-        // ブラックホール風生物学的オーガンゲートウェイを自動設定
+        // 統合ブラックホールゲートウェイマネージャーを自動設定
         if (useBiologicalOrgan)
         {
+            if (blackHoleGatewayManager == null)
+            {
+                blackHoleGatewayManager = GetComponent<BlackHoleGatewayManager>();
+                if (blackHoleGatewayManager == null)
+                {
+                    // コンポーネントが存在しない場合は追加
+                    blackHoleGatewayManager = gameObject.AddComponent<BlackHoleGatewayManager>();
+                    Debug.Log("[HeartGateway] BlackHoleGatewayManager component added automatically");
+                }
+                else
+                {
+                    Debug.Log("[HeartGateway] BlackHoleGatewayManager component found");
+                }
+            }
+            
+            // 従来のBlackHoleBiologicalGatewayも取得
             if (blackHoleBiologicalGateway == null)
             {
                 blackHoleBiologicalGateway = GetComponent<BlackHoleBiologicalGateway>();
                 if (blackHoleBiologicalGateway == null)
                 {
-                    // コンポーネントが存在しない場合は追加
                     blackHoleBiologicalGateway = gameObject.AddComponent<BlackHoleBiologicalGateway>();
                     Debug.Log("[HeartGateway] BlackHoleBiologicalGateway component added automatically");
                 }
-                else
-                {
-                    Debug.Log("[HeartGateway] BlackHoleBiologicalGateway component found");
-                }
             }
             
-            // BlackHoleEmitterVisualは各Emitterに自動で追加される
-            
-            Debug.Log($"[HeartGateway] Black hole biological organ system enabled - Gateway: {blackHoleBiologicalGateway != null}");
+            Debug.Log($"[HeartGateway] Integrated black hole system enabled - Manager: {blackHoleGatewayManager != null}, Gateway: {blackHoleBiologicalGateway != null}");
         }
         else
         {

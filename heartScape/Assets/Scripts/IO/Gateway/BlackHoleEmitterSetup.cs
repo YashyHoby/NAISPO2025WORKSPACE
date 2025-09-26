@@ -28,6 +28,11 @@ namespace HeartScape.IO.Gateway
         [SerializeField] private float bubbleSpeed = 0.5f;
         [SerializeField] private Color bubbleColor = new Color(0.7f, 0.7f, 0.7f, 0.6f);
         
+        [Header("Bubble Direction Settings")]
+        [SerializeField] private bool useEmitterDirection = true;
+        [SerializeField] private float bubbleDirectionStrength = 1f;
+        [SerializeField] private float bubbleSpreadAngle = 30f;
+        
         [Header("Object Appearance Settings")]
         [SerializeField] private float objectAppearSpeed = 5f;
         [SerializeField] private float objectMaxScale = 1.2f;
@@ -90,6 +95,11 @@ namespace HeartScape.IO.Gateway
             emitterVisual.bubbleSpeed = bubbleSpeed;
             emitterVisual.bubbleColor = bubbleColor;
             
+            // バブル方向設定
+            emitterVisual.useEmitterDirection = useEmitterDirection;
+            emitterVisual.bubbleDirectionStrength = bubbleDirectionStrength;
+            emitterVisual.bubbleSpreadAngle = bubbleSpreadAngle;
+            
             // オブジェクト出現設定
             emitterVisual.objectAppearSpeed = objectAppearSpeed;
             emitterVisual.objectMaxScale = objectMaxScale;
@@ -100,7 +110,7 @@ namespace HeartScape.IO.Gateway
         /// </summary>
         void SetupVisualComponents(BlackHoleEmitterVisual emitterVisual)
         {
-            // VisualRootを作成
+            // VisualRootを作成（Emitterの子として配置）
             Transform visualRoot = transform.Find("VisualRoot");
             if (visualRoot == null)
             {
@@ -110,6 +120,15 @@ namespace HeartScape.IO.Gateway
                 visualRoot.localPosition = Vector3.zero;
                 visualRoot.localRotation = Quaternion.identity;
                 visualRoot.localScale = Vector3.one;
+                
+                Debug.Log($"[BlackHoleEmitterSetup] VisualRoot created under {transform.name}");
+            }
+            
+            // BlackHoleEmitterVisualのvisualRootを設定
+            if (emitterVisual != null)
+            {
+                emitterVisual.visualRoot = visualRoot;
+                Debug.Log($"[BlackHoleEmitterSetup] VisualRoot assigned to BlackHoleEmitterVisual");
             }
             
             // ブラックホールレンダラーを作成
@@ -183,7 +202,11 @@ namespace HeartScape.IO.Gateway
             var velocityOverLifetime = particleSystem.velocityOverLifetime;
             velocityOverLifetime.enabled = true;
             velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
+            
+            // すべてConstantモードで統一
             velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(bubbleSpeed);
+            velocityOverLifetime.x = new ParticleSystem.MinMaxCurve(0f);
+            velocityOverLifetime.y = new ParticleSystem.MinMaxCurve(0f);
             
             // マテリアルを設定
             var renderer = particleSystem.GetComponent<ParticleSystemRenderer>();
@@ -224,6 +247,46 @@ namespace HeartScape.IO.Gateway
             texture.Apply();
             
             return Sprite.Create(texture, new Rect(0, 0, textureSize, textureSize), new Vector2(0.5f, 0.5f));
+        }
+        
+        /// <summary>
+        /// デバッグ用：セットアップ状態を確認
+        /// </summary>
+        [ContextMenu("Debug Setup Status")]
+        public void DebugSetupStatus()
+        {
+            Debug.Log($"[BlackHoleEmitterSetup] Debug for {gameObject.name}:");
+            
+            // BlackHoleEmitterVisualの確認
+            BlackHoleEmitterVisual emitterVisual = GetComponent<BlackHoleEmitterVisual>();
+            Debug.Log($"  BlackHoleEmitterVisual: {(emitterVisual != null ? "Found" : "NOT FOUND")}");
+            
+            // VisualRootの確認
+            Transform visualRoot = transform.Find("VisualRoot");
+            Debug.Log($"  VisualRoot: {(visualRoot != null ? "Found" : "NOT FOUND")}");
+            if (visualRoot != null)
+            {
+                Debug.Log($"    VisualRoot children: {visualRoot.childCount}");
+                for (int i = 0; i < visualRoot.childCount; i++)
+                {
+                    Debug.Log($"      Child {i}: {visualRoot.GetChild(i).name}");
+                }
+            }
+            
+            // ObjectSpawnPointの確認
+            Transform spawnPoint = transform.Find("ObjectSpawnPoint");
+            Debug.Log($"  ObjectSpawnPoint: {(spawnPoint != null ? "Found" : "NOT FOUND")}");
+            
+            // BlackHoleBiologicalGatewayの確認
+            BlackHoleBiologicalGateway gateway = FindFirstObjectByType<BlackHoleBiologicalGateway>();
+            if (gateway != null)
+            {
+                Debug.Log($"  BlackHoleBiologicalGateway: Found");
+            }
+            else
+            {
+                Debug.Log($"  BlackHoleBiologicalGateway: NOT FOUND");
+            }
         }
         
         void OnDrawGizmos()
